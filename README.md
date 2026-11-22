@@ -1,7 +1,4 @@
-# foodivo_application_de_livraison
-Full-stack food delivery platform with role-based Admin, Restaurant, Client &amp; Driver experiences — Next.js web app + Flutter Android app, shared Supabase backend (Postgres, Auth, Realtime, Storage).
-
-# FoodFlow — Food Delivery Platform
+# Foodivo — Food Delivery Platform
 
 A full-stack food delivery platform with four role-based experiences —
 **Admin**, **Restaurant**, **Client**, and **Driver** — available on both a
