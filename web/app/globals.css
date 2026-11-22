@@ -1,0 +1,151 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  -webkit-tap-highlight-color: transparent;
+}
+
+@layer base {
+  /* Consistent, animated focus for every form field in the app. */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+  select,
+  textarea {
+    @apply transition duration-200;
+  }
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus,
+  select:focus,
+  textarea:focus {
+    @apply border-brand-500 outline-none ring-4 ring-brand-500/15;
+  }
+  button:not(:disabled),
+  a {
+    @apply transition duration-200;
+  }
+  /* Subtle "press" feedback on every enabled button. */
+  button:not(:disabled):active {
+    transform: scale(0.97);
+  }
+  ::selection {
+    @apply bg-brand-200 text-brand-700;
+  }
+}
+
+@layer components {
+  /* Card that lifts on hover. */
+  .card-hover {
+    @apply transition duration-300 ease-out hover:-translate-y-1 hover:shadow-lift;
+  }
+
+  /* Staggered entrance: give children style={{ "--i": index }}. */
+  .stagger > * {
+    /* backwards fill: no leftover transform, so fixed-position popups inside still work */
+    animation: fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    animation-delay: calc(var(--i, 0) * 60ms);
+  }
+
+  .skeleton {
+    @apply animate-shimmer rounded-lg bg-gradient-to-r from-slate-100 via-slate-200 to-slate-100 bg-[length:200%_100%];
+  }
+
+  .text-gradient {
+    @apply bg-gradient-to-r from-brand-600 to-rose-500 bg-clip-text text-transparent;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand-500 to-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-glow transition duration-200 hover:-translate-y-0.5 hover:brightness-110 disabled:translate-y-0 disabled:opacity-50 disabled:shadow-none;
+  }
+}
+
+/* Live status dot (open restaurant, active order…). */
+.live-dot {
+  position: relative;
+}
+.live-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: inherit;
+  animation: live-ping 1.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+@keyframes live-ping {
+  75%,
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Declared here too so .stagger works even on pages without animate-fade-up. */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Special-offer cards: soft pulsing rose/amber glow + ring. */
+.offer-glow {
+  box-shadow: 0 0 0 2px rgb(251 113 133 / 0.55), 0 12px 32px -10px rgb(225 29 72 / 0.45);
+  animation: offer-glow 2.6s ease-in-out infinite;
+}
+@keyframes offer-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 2px rgb(251 113 133 / 0.55), 0 12px 32px -10px rgb(225 29 72 / 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgb(251 191 36 / 0.75), 0 16px 40px -8px rgb(245 158 11 / 0.55);
+  }
+}
+
+/* Shine sweep across promo banners. */
+.shine {
+  position: relative;
+  overflow: hidden;
+}
+.shine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, rgb(255 255 255 / 0.35) 50%, transparent 70%);
+  transform: translateX(-100%);
+  animation: shine 3.2s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes shine {
+  0%,
+  55% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}

@@ -1,0 +1,53 @@
+# Codemagic cloud builds for Foodivo (builds iOS on Codemagic's Macs - no Mac needed locally).
+# Docs: https://docs.codemagic.io/yaml-quick-start/building-a-flutter-app/
+workflows:
+  # 1) Test build: runs on the iOS Simulator, no Apple account needed.
+  ios-simulator:
+    name: iOS simulator build (unsigned)
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Get packages
+        script: flutter pub get
+      - name: Install pods
+        script: cd ios && pod install --repo-update
+      - name: Build for simulator
+        script: flutter build ios --simulator --debug
+    artifacts:
+      - build/ios/iphonesimulator/*.app
+
+  # 2) Real build for iPhones / TestFlight / App Store.
+  #    Needs an Apple Developer account (99 USD/year) connected in Codemagic:
+  #    Teams > Integrations > Developer Portal, named "foodivo_asc_key" below.
+  ios-release:
+    name: iOS release (TestFlight)
+    instance_type: mac_mini_m2
+    max_build_duration: 90
+    integrations:
+      app_store_connect: foodivo_asc_key
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.foodivo.app
+    scripts:
+      - name: Get packages
+        script: flutter pub get
+      - name: Install pods
+        script: cd ios && pod install --repo-update
+      - name: Set up code signing
+        script: xcode-project use-profiles
+      - name: Build IPA
+        script: flutter build ipa --release --build-number=$(($BUILD_NUMBER + 1)) --export-options-plist=/Users/builder/export_options.plist
+    artifacts:
+      - build/ios/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
