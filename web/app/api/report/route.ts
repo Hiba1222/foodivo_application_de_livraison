@@ -42,11 +42,15 @@ export async function POST(req: Request) {
     const { data: orders } = await query;
 
     const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user.id).single();
-    const enriched = (orders ?? []).map((o) => ({
-      ...o,
-      cut: Math.round(o.delivery_fee_cents * PLATFORM_FEE_RATE),
-      net: Math.round(o.delivery_fee_cents * (1 - PLATFORM_FEE_RATE)),
-    }));
+    const enriched = (orders ?? []).map((o) => {
+      const restaurants = Array.isArray(o.restaurants) ? (o.restaurants[0] ?? null) : o.restaurants;
+      return {
+        ...o,
+        restaurants,
+        cut: Math.round(o.delivery_fee_cents * PLATFORM_FEE_RATE),
+        net: Math.round(o.delivery_fee_cents * (1 - PLATFORM_FEE_RATE)),
+      };
+    });
 
     await sendDriverReportEmail(email, {
       driverName: (profile as any)?.full_name ?? "",
