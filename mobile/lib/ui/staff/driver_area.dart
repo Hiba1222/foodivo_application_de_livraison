@@ -6,6 +6,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/money.dart';
+import '../../core/notify.dart';
 import '../../core/order_codes.dart';
 import '../../core/theme.dart';
 import '../../data/repo.dart';
@@ -966,6 +967,8 @@ class _Earnings extends StatefulWidget {
 class _EarningsState extends State<_Earnings> {
   List<Map<String, dynamic>>? _orders;
   String _period = '30';
+  bool _emailing = false;
+  bool _emailSent = false;
 
   @override
   void initState() {
@@ -980,9 +983,22 @@ class _EarningsState extends State<_Earnings> {
         since = DateTime.now().subtract(Duration(days: int.parse(_period)));
       }
       final rows = await DriverRepo.earnings(since: since);
-      if (mounted) setState(() => _orders = rows);
+      if (mounted) setState(() { _orders = rows; _emailSent = false; });
     } catch (e) {
       if (mounted) showError(context, errorMessage(e));
+    }
+  }
+
+  Future<void> _emailReport() async {
+    setState(() => _emailing = true);
+    try {
+      await emailReport(type: 'driver', period: _period);
+      if (mounted) setState(() { _emailSent = true; _emailing = false; });
+    } catch (e) {
+      if (mounted) {
+        setState(() => _emailing = false);
+        showError(context, errorMessage(e));
+      }
     }
   }
 
@@ -1007,24 +1023,41 @@ class _EarningsState extends State<_Earnings> {
         child: ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
           PageHeader(context.t('My earnings')),
 
-          // Period selector
-          Row(children: periods.map((p) {
-            final selected = _period == p.$1;
-            return Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: GestureDetector(
-                onTap: () { setState(() => _period = p.$1); _refresh(); },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: selected ? C.brand600 : C.slate100,
-                    borderRadius: BorderRadius.circular(20),
+          // Period selector + email report
+          Row(children: [
+            ...periods.map((p) {
+              final selected = _period == p.$1;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: GestureDetector(
+                  onTap: () { setState(() => _period = p.$1); _refresh(); },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: selected ? C.brand600 : C.slate100,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(p.$2, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: selected ? Colors.white : C.slate600)),
                   ),
-                  child: Text(p.$2, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: selected ? Colors.white : C.slate600)),
                 ),
+              );
+            }),
+            const Spacer(),
+            GestureDetector(
+              onTap: (_emailing || _emailSent) ? null : _emailReport,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(color: _emailSent ? C.green100 : C.slate100, borderRadius: BorderRadius.circular(20)),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  _emailing
+                      ? const SizedBox(height: 14, width: 14, child: CircularProgressIndicator(strokeWidth: 2, color: C.brand600))
+                      : Icon(_emailSent ? Icons.check : Icons.email_outlined, size: 16, color: _emailSent ? C.green700 : C.slate600),
+                  const SizedBox(width: 4),
+                  Text(_emailSent ? context.t('Sent!') : context.t('Email'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _emailSent ? C.green700 : C.slate600)),
+                ]),
               ),
-            );
-          }).toList()),
+            ),
+          ]),
 
           const SizedBox(height: 16),
 

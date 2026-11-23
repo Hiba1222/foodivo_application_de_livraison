@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/money.dart';
+import '../../core/notify.dart';
 import '../../core/order_codes.dart';
 import '../../core/theme.dart';
 import '../../data/models.dart';
@@ -44,6 +45,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   Map<String, dynamic>? _review;
   bool _loaded = false;
   bool _cancelling = false;
+  bool _emailingInvoice = false;
+  bool _invoiceSent = false;
   StreamSubscription? _live;
 
   @override
@@ -179,6 +182,35 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                       _review == null
                           ? _ReviewForm(orderId: widget.orderId, hasDriver: o['driver_id'] != null, onSubmitted: _load)
                           : _ReviewDisplay(review: _review!),
+                      const SizedBox(height: 10),
+                      // Invoice email button
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: (_emailingInvoice || _invoiceSent)
+                              ? null
+                              : () async {
+                                  setState(() => _emailingInvoice = true);
+                                  try {
+                                    await emailInvoice(widget.orderId);
+                                    if (mounted) setState(() { _invoiceSent = true; _emailingInvoice = false; });
+                                  } catch (e) {
+                                    if (mounted) {
+                                      setState(() => _emailingInvoice = false);
+                                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errorMessage(e))));
+                                    }
+                                  }
+                                },
+                          icon: _emailingInvoice
+                              ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                              : Icon(_invoiceSent ? Icons.check : Icons.receipt_long_outlined),
+                          label: Text(_invoiceSent ? context.t('Invoice sent!') : context.t('Email Invoice')),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ),
                     ],
                     const SizedBox(height: 14),
                     FadeInUp(index: 3, child: _Items(order: o)),

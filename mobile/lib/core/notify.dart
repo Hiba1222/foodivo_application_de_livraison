@@ -27,3 +27,38 @@ Future<void> notifyOrderStatus(String orderId, String newStatus) async {
     // Never surface notification errors to the user
   }
 }
+
+/// Sends an invoice email to the authenticated client for a delivered order.
+/// Throws on network or server errors (caller should show a snackbar).
+Future<void> emailInvoice(String orderId) async {
+  if (Env.appUrl.isEmpty) throw Exception('App URL not configured');
+  final token = _sb.auth.currentSession?.accessToken;
+  if (token == null) throw Exception('Not authenticated');
+  final client = HttpClient();
+  final request = await client.postUrl(Uri.parse('${Env.appUrl}/api/invoice/$orderId'));
+  request.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
+  request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
+  request.write('{}');
+  final response = await request.close();
+  final body = await response.transform(const Utf8Decoder()).join();
+  client.close();
+  if (response.statusCode != 200) throw Exception(body);
+}
+
+/// Sends a report email to the authenticated user (driver or restaurant owner).
+/// [type] must be 'driver' or 'restaurant'. [period] is '7', '30', '90', or 'all'.
+/// Throws on network or server errors (caller should show a snackbar).
+Future<void> emailReport({required String type, required String period}) async {
+  if (Env.appUrl.isEmpty) throw Exception('App URL not configured');
+  final token = _sb.auth.currentSession?.accessToken;
+  if (token == null) throw Exception('Not authenticated');
+  final client = HttpClient();
+  final request = await client.postUrl(Uri.parse('${Env.appUrl}/api/report'));
+  request.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
+  request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
+  request.write(jsonEncode({'type': type, 'period': period}));
+  final response = await request.close();
+  final body = await response.transform(const Utf8Decoder()).join();
+  client.close();
+  if (response.statusCode != 200) throw Exception(body);
+}

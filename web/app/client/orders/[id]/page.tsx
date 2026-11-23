@@ -220,6 +220,18 @@ export default async function ClientOrderDetailPage({ params }: { params: { id: 
         </div>
       )}
 
+      {/* Invoice — available after delivery */}
+      {order.status === "delivered" && (
+        <a
+          href={`/invoice/${order.id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-4 flex items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200 hover:bg-slate-50"
+        >
+          🧾 {t("View / Download Invoice")}
+        </a>
+      )}
+
       {/* Items */}
       <div className="mt-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
         <h2 className="text-sm font-semibold text-slate-900">{t("Items")}</h2>

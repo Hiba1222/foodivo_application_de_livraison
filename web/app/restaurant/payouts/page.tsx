@@ -154,6 +154,18 @@ export default async function RestaurantPayoutsPage({
           </div>
         )}
       </div>
+
+      {/* Report download link */}
+      <div className="mt-4 flex justify-end">
+        <a
+          href={`/report/restaurant?period=${period}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm ring-1 ring-slate-200 hover:bg-slate-50"
+        >
+          📄 {t("Download / Email Report")}
+        </a>
+      </div>
     </div>
   );
 }
