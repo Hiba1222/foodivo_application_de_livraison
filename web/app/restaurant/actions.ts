@@ -3,10 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getT } from "@/lib/i18n/server";
 import type { OrderStatus } from "@/lib/types";
 import { parsePrice } from "@/lib/currency";
 import { OPTION_TEMPLATES, type OptionGroupKind } from "@/lib/menu-options";
+import { sendOrderStatusEmails } from "@/lib/email";
+import { sendPushToClient } from "@/lib/fcm";
 
 async function requireUser() {
   const supabase = createClient();
@@ -55,6 +58,17 @@ export async function updateRestaurant(restaurantId: string, formData: FormData)
   if (error) throw new Error(error.message);
   revalidatePath("/restaurant/settings");
   revalidatePath("/restaurant");
+  redirect("/restaurant/settings?saved=1");
+}
+
+export async function updateOwnerProfile(formData: FormData) {
+  const { supabase, user } = await requireUser();
+  const fullName = (formData.get("full_name") as string)?.trim();
+  if (!fullName) return;
+  const { error } = await supabase.from("profiles").update({ full_name: fullName }).eq("id", user.id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/restaurant/settings");
+  redirect("/restaurant/settings?saved=1");
 }
 
 export async function toggleRestaurantOpen(restaurantId: string, isOpen: boolean) {
@@ -424,7 +438,7 @@ export async function updateOrderStatus(orderId: string, newStatus: OrderStatus)
 
   const { data: order, error: fetchError } = await supabase
     .from("orders")
-    .select("status")
+    .select("status, client_id, restaurant_id, total_cents, restaurants(name, owner_id), profiles!orders_client_id_fkey(full_name)")
     .eq("id", orderId)
     .single();
   if (fetchError) throw new Error(fetchError.message);
@@ -452,5 +466,28 @@ export async function updateOrderStatus(orderId: string, newStatus: OrderStatus)
     changed_by: user.id,
   });
 
+  // Fire-and-forget status change emails
+  void (async () => {
+    try {
+      const restaurant = order.restaurants as any;
+      const admin = createAdminClient();
+      const [clientRes, restaurantRes] = await Promise.all([
+        admin.auth.admin.getUserById(order.client_id),
+        restaurant?.owner_id ? admin.auth.admin.getUserById(restaurant.owner_id) : Promise.resolve({ data: { user: null } }),
+      ]);
+      await sendOrderStatusEmails({
+        orderId,
+        status: newStatus,
+        clientEmail: clientRes.data.user?.email ?? null,
+        clientName: (order.profiles as any)?.full_name ?? null,
+        restaurantEmail: restaurantRes.data.user?.email ?? null,
+        restaurantName: restaurant?.name ?? null,
+        driverName: null,
+        totalCents: order.total_cents,
+      });
+    } catch {}
+  })();
+
+  sendPushToClient(order.client_id, newStatus);
   revalidatePath("/restaurant/orders");
 }

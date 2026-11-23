@@ -11,4 +11,4 @@ export interface OrderItemOptionRow {
 }
 
 export const ORDER_ITEMS_SELECT =
-  "order_items(quantity, unit_price_cents, notes, menu_items(name), order_item_options(group_name, option_name, mode, price_cents))";
+  "order_items(quantity, unit_price_cents, notes, menu_items(name, image_url), order_item_options(group_name, option_name, mode, price_cents))";

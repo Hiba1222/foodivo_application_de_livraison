@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/money.dart';
+import '../../core/order_codes.dart';
 import '../../core/theme.dart';
 import '../../data/models.dart';
 import '../../data/repo.dart';
@@ -40,7 +41,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   Map<String, dynamic>? _order;
   List<Map<String, dynamic>> _history = [];
   DriverInfo? _driver;
+  Map<String, dynamic>? _review;
   bool _loaded = false;
+  bool _cancelling = false;
   StreamSubscription? _live;
 
   @override
@@ -65,16 +68,50 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       if (o != null && o['driver_id'] != null && (o['status'] == 'driver_assigned' || o['status'] == 'picked_up')) {
         d = await Repo.orderDriver(widget.orderId);
       }
+      Map<String, dynamic>? rv;
+      if (o != null && o['status'] == 'delivered') {
+        rv = await Repo.getReview(widget.orderId);
+      }
       if (mounted) {
         setState(() {
           _order = o;
           _history = h;
           _driver = d;
+          _review = rv;
           _loaded = true;
         });
       }
     } catch (_) {
       if (mounted) setState(() => _loaded = true);
+    }
+  }
+
+  Future<void> _cancelOrder() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(context.t('Cancel order')),
+        content: Text(context.t('Cancel this order? This cannot be undone.')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(context.t('No'))),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(context.t('Yes, cancel'), style: const TextStyle(color: C.red600)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    setState(() => _cancelling = true);
+    try {
+      await Repo.cancelOrder(widget.orderId);
+      await _load();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errorMessage(e))));
+      }
+    } finally {
+      if (mounted) setState(() => _cancelling = false);
     }
   }
 
@@ -95,9 +132,56 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     Text(context.t('Placed {date}', {'date': i18n.dateTime(o['created_at'])}), style: const TextStyle(color: C.slate500)),
                     const SizedBox(height: 14),
                     FadeInUp(child: _Timeline(status: o['status'], history: _history)),
-                    if (_driver != null) ...[const SizedBox(height: 14), FadeInUp(index: 1, child: _DriverCard(driver: _driver!, pickedUp: o['status'] == 'picked_up'))],
+                    if (_driver != null) ...[
+                      const SizedBox(height: 14),
+                      FadeInUp(index: 1, child: _DriverCard(driver: _driver!, pickedUp: o['status'] == 'picked_up')),
+                      const SizedBox(height: 10),
+                      FadeInUp(
+                        index: 2,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          decoration: BoxDecoration(color: const Color(0xFFF0FDF4), borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFFBBF7D0))),
+                          child: Row(children: [
+                            const Icon(Icons.lock_outlined, size: 20, color: Color(0xFF16A34A)),
+                            const SizedBox(width: 10),
+                            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Text(context.t('Delivery code'), style: const TextStyle(fontSize: 11, color: Color(0xFF15803D), fontWeight: FontWeight.w600)),
+                              Text(deliveryCode(o['id']), style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: Color(0xFF166534), letterSpacing: 4)),
+                            ]),
+                            const Spacer(),
+                            Flexible(child: Text(context.t('Share this code with your driver to confirm your identity.'), style: const TextStyle(fontSize: 11, color: Color(0xFF16A34A)), textAlign: TextAlign.end)),
+                          ]),
+                        ),
+                      ),
+                    ],
+                    // Cancel button — only while pending
+                    if (o['status'] == 'pending') ...[
+                      const SizedBox(height: 14),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: _cancelling ? null : _cancelOrder,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: C.red600,
+                            side: const BorderSide(color: C.red600),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: _cancelling
+                              ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: C.red600))
+                              : Text(context.t('Cancel order'), style: const TextStyle(fontWeight: FontWeight.w600)),
+                        ),
+                      ),
+                    ],
+                    // Review section — only after delivery
+                    if (o['status'] == 'delivered') ...[
+                      const SizedBox(height: 14),
+                      _review == null
+                          ? _ReviewForm(orderId: widget.orderId, hasDriver: o['driver_id'] != null, onSubmitted: _load)
+                          : _ReviewDisplay(review: _review!),
+                    ],
                     const SizedBox(height: 14),
-                    FadeInUp(index: 2, child: _Items(order: o)),
+                    FadeInUp(index: 3, child: _Items(order: o)),
                     const SizedBox(height: 24),
                   ]),
                 ),
@@ -247,6 +331,147 @@ class _DriverCard extends StatelessWidget {
               label: Text(context.t('Driver location'), style: const TextStyle(color: C.brand700, fontWeight: FontWeight.w700)),
             ),
           ),
+      ]),
+    );
+  }
+}
+
+class _ReviewDisplay extends StatelessWidget {
+  final Map<String, dynamic> review;
+  const _ReviewDisplay({required this.review});
+  @override
+  Widget build(BuildContext context) {
+    final restaurantRating = (review['restaurant_rating'] as num?)?.toInt() ?? 0;
+    final driverRating = (review['driver_rating'] as num?)?.toInt();
+    final comment = review['comment'] as String?;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBEB),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFDE68A)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(context.t('Your review'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFFB45309))),
+        const SizedBox(height: 6),
+        Row(children: [
+          Text('🍽️ ${'⭐' * restaurantRating}', style: const TextStyle(fontSize: 14)),
+          if (driverRating != null) ...[
+            const SizedBox(width: 12),
+            Text('🛵 ${'⭐' * driverRating}', style: const TextStyle(fontSize: 14)),
+          ],
+        ]),
+        if (comment != null && comment.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(comment, style: const TextStyle(fontSize: 13, color: C.slate600)),
+        ],
+      ]),
+    );
+  }
+}
+
+class _ReviewForm extends StatefulWidget {
+  final String orderId;
+  final bool hasDriver;
+  final VoidCallback onSubmitted;
+  const _ReviewForm({required this.orderId, required this.hasDriver, required this.onSubmitted});
+  @override
+  State<_ReviewForm> createState() => _ReviewFormState();
+}
+
+class _ReviewFormState extends State<_ReviewForm> {
+  int _restaurantRating = 0;
+  int _driverRating = 0;
+  final _commentCtrl = TextEditingController();
+  bool _submitting = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _commentCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_restaurantRating == 0) {
+      setState(() => _error = context.t('Please rate the restaurant.'));
+      return;
+    }
+    setState(() { _submitting = true; _error = null; });
+    try {
+      await Repo.submitReview(
+        orderId: widget.orderId,
+        restaurantRating: _restaurantRating,
+        driverRating: widget.hasDriver && _driverRating > 0 ? _driverRating : null,
+        comment: _commentCtrl.text.trim().isEmpty ? null : _commentCtrl.text.trim(),
+      );
+      widget.onSubmitted();
+    } catch (e) {
+      if (mounted) setState(() => _error = errorMessage(e));
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  Widget _stars(int value, void Function(int) onTap) {
+    return Row(
+      children: List.generate(5, (i) => GestureDetector(
+        onTap: () => onTap(i + 1),
+        child: Padding(
+          padding: const EdgeInsets.only(right: 2),
+          child: Text(i < value ? '⭐' : '☆', style: const TextStyle(fontSize: 24)),
+        ),
+      )),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CardBox(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(context.t('Rate your order'), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+        const SizedBox(height: 12),
+        Text(context.t('Restaurant'), style: const TextStyle(fontSize: 12, color: C.slate500)),
+        const SizedBox(height: 4),
+        _stars(_restaurantRating, (v) => setState(() => _restaurantRating = v)),
+        if (widget.hasDriver) ...[
+          const SizedBox(height: 10),
+          Text(context.t('Driver'), style: const TextStyle(fontSize: 12, color: C.slate500)),
+          const SizedBox(height: 4),
+          _stars(_driverRating, (v) => setState(() => _driverRating = v)),
+        ],
+        const SizedBox(height: 10),
+        TextField(
+          controller: _commentCtrl,
+          maxLines: 2,
+          maxLength: 500,
+          decoration: InputDecoration(
+            hintText: context.t('Leave a comment (optional)'),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: C.slate300)),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            counterText: '',
+          ),
+        ),
+        if (_error != null) ...[
+          const SizedBox(height: 6),
+          Text(_error!, style: const TextStyle(color: C.red600, fontSize: 13)),
+        ],
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _submitting ? null : _submit,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: C.brand600,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: _submitting
+                ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : Text(context.t('Submit review'), style: const TextStyle(fontWeight: FontWeight.w700)),
+          ),
+        ),
       ]),
     );
   }

@@ -42,7 +42,7 @@ const _mobileFr = <String, String>{
   'Offer price (TND)': 'Prix promo (TND)',
   'Show this item in the Special offers section at the top of your menu.': 'Afficher ce plat dans la section Offres spéciales en haut de votre menu.',
   'Tap an item to edit its photo, price, offer and options. Use the switch to hide it instantly.':
-      'Touchez un plat pour modifier sa photo, son prix, son offre et ses options. Utilisez l’interrupteur pour le masquer instantanément.',
+      "Touchez un plat pour modifier sa photo, son prix, son offre et ses options. Utilisez l'interrupteur pour le masquer instantanément.",
   'Your location is shared with customers while you are online.': 'Votre position est partagée avec les clients tant que vous êtes en ligne.',
   'e.g. Choose your drink': 'ex. Choisissez votre boisson',
   'e.g. Ramadan special': 'ex. Spécial Ramadan',
@@ -59,13 +59,25 @@ const _mobileFr = <String, String>{
   'New delivery available!': 'Nouvelle livraison disponible !',
   'Reject this order?': 'Refuser cette commande ?',
   'No new orders right now.': 'Aucune nouvelle commande pour le moment.',
-  'Slide when ready for pickup': 'Glissez quand c’est prêt',
+  'Slide when ready for pickup': "Glissez quand c'est prêt",
   'Slide when picked up': 'Glissez une fois récupérée',
   'Slide when delivered': 'Glissez une fois livrée',
   'Go online to start receiving delivery requests.': 'Passez en ligne pour recevoir des demandes de livraison.',
-  "We'll buzz you as soon as an order is ready.": 'Votre téléphone vibrera dès qu’une commande sera prête.',
+  "We'll buzz you as soon as an order is ready.": "Votre téléphone vibrera dès qu'une commande sera prête.",
   'Waiting for your approval': 'En attente de votre approbation',
-  'Nothing waiting for approval.': 'Rien en attente d’approbation.',
+  'Nothing waiting for approval.': "Rien en attente d'approbation.",
+  // Order cancellation
+  'Cancel order': 'Annuler la commande',
+  'Cancel this order? This cannot be undone.': 'Annuler cette commande ? Cette action est irréversible.',
+  'Yes, cancel': 'Oui, annuler',
+  'Only pending orders can be cancelled': 'Seules les commandes en attente peuvent être annulées',
+  // Reviews
+  'Rate your order': 'Évaluer votre commande',
+  'Please rate the restaurant.': 'Veuillez noter le restaurant.',
+  'Leave a comment (optional)': 'Laisser un commentaire (facultatif)',
+  'Submit review': "Envoyer l'avis",
+  'Thanks for your review!': 'Merci pour votre avis !',
+  'Your review': 'Votre avis',
 };
 
 class I18n extends ChangeNotifier {

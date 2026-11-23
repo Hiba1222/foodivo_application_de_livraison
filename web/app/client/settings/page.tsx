@@ -1,14 +1,19 @@
 import { createClient } from "@/lib/supabase/server";
 import ImageUploader from "@/components/ImageUploader";
+import SavedToast from "@/components/SavedToast";
 import {
-  updateClientPhone,
+  updateClientProfile,
   addAddress,
   deleteAddress,
   setDefaultAddress,
 } from "../actions";
 import { getT } from "@/lib/i18n/server";
 
-export default async function ClientSettingsPage() {
+export default async function ClientSettingsPage({
+  searchParams,
+}: {
+  searchParams: { saved?: string };
+}) {
   const t = getT();
   const supabase = createClient();
   const {
@@ -26,6 +31,8 @@ export default async function ClientSettingsPage() {
 
   return (
     <div>
+      {searchParams.saved === "1" && <SavedToast message={t("Saved successfully")} />}
+
       <h1 className="text-xl font-bold text-slate-900">{t("Settings")}</h1>
 
       <div className="mt-6 max-w-lg space-y-4 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
@@ -44,22 +51,32 @@ export default async function ClientSettingsPage() {
       </div>
 
       <form
-        action={updateClientPhone}
+        action={updateClientProfile}
         className="mt-4 max-w-lg space-y-3 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200"
       >
-        <label className="block text-sm font-medium text-slate-700">{t("Phone number")}</label>
-        <input
-          name="phone"
-          type="tel"
-          defaultValue={profile?.phone ?? ""}
-          required
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-        />
+        <div>
+          <label className="block text-sm font-medium text-slate-700">{t("Full name")}</label>
+          <input
+            name="full_name"
+            defaultValue={profile?.full_name ?? ""}
+            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700">{t("Phone number")}</label>
+          <input
+            name="phone"
+            type="tel"
+            defaultValue={profile?.phone ?? ""}
+            required
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          />
+        </div>
         <button
           type="submit"
           className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
         >
-          {t("Save phone")}
+          {t("Save changes")}
         </button>
       </form>
 

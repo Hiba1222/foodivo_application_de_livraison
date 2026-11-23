@@ -1,5 +1,10 @@
-import 'package:material_ui/material_ui.dart';
+import 'dart:convert';
+import 'dart:io';
 
+import 'package:material_ui/material_ui.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../core/env.dart';
 import '../../core/theme.dart';
 import '../../data/repo.dart';
 import '../auth_gate.dart';
@@ -114,7 +119,14 @@ class _LoginScreenState extends State<LoginScreen> {
         const SizedBox(height: 10),
         Text(_error!, style: const TextStyle(color: C.red600, fontWeight: FontWeight.w600)),
       ],
-      const SizedBox(height: 18),
+      Align(
+        alignment: Alignment.centerRight,
+        child: TextButton(
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ForgotPasswordScreen())),
+          child: Text(context.t('Forgot password?'), style: const TextStyle(color: C.brand600, fontSize: 13)),
+        ),
+      ),
+      const SizedBox(height: 8),
       PrimaryButton(_loading ? context.t('Signing in…') : context.t('Sign in'), loading: _loading, onPressed: _submit),
       const SizedBox(height: 14),
       Row(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -245,6 +257,158 @@ class _SignupScreenState extends State<SignupScreen> {
           child: Text(context.t('Sign in'), style: const TextStyle(color: C.brand600, fontWeight: FontWeight.w700)),
         ),
       ]),
+    ]);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Forgot password
+// ---------------------------------------------------------------------------
+
+class ForgotPasswordScreen extends StatefulWidget {
+  const ForgotPasswordScreen({super.key});
+  @override
+  State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
+}
+
+class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
+  final _email = TextEditingController();
+  final _code = TextEditingController();
+  final _password = TextEditingController();
+  final _confirm = TextEditingController();
+  bool _loading = false, _obscure = true;
+  // 'email' | 'code' | 'done'
+  String _step = 'email';
+  String? _error;
+
+  Future<void> _sendCode() async {
+    final email = _email.text.trim();
+    if (email.isEmpty) return setState(() => _error = context.t('Required field'));
+    setState(() { _loading = true; _error = null; });
+    try {
+      if (Env.appUrl.isNotEmpty) {
+        final client = HttpClient();
+        final req = await client.postUrl(Uri.parse('${Env.appUrl}/api/forgot-password'));
+        req.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
+        req.write(jsonEncode({'email': email}));
+        final resp = await req.close();
+        final body = await resp.transform(utf8.decoder).join();
+        client.close();
+        if (resp.statusCode != 200) {
+          final decoded = jsonDecode(body);
+          throw Exception(decoded['error'] ?? 'Failed to send code');
+        }
+      } else {
+        await sb.auth.resetPasswordForEmail(email);
+      }
+      if (mounted) setState(() => _step = 'code');
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _resetPassword() async {
+    if (_password.text != _confirm.text) return setState(() => _error = context.t('Passwords do not match.'));
+    if (_password.text.length < 6) return setState(() => _error = context.t('Password must be at least 6 characters'));
+    setState(() { _loading = true; _error = null; });
+    try {
+      final verifyRes = await sb.auth.verifyOTP(
+        email: _email.text.trim(),
+        token: _code.text.trim(),
+        type: OtpType.recovery,
+      );
+      if (verifyRes.session == null) throw Exception(context.t('Invalid or expired code. Please request a new one.'));
+      await sb.auth.updateUser(UserAttributes(password: _password.text));
+      if (mounted) setState(() => _step = 'done');
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _AuthCard(children: [
+      Align(
+        alignment: Alignment.centerLeft,
+        child: IconButton(
+          onPressed: () => _step == 'code'
+              ? setState(() { _step = 'email'; _error = null; })
+              : Navigator.pop(context),
+          icon: const Icon(Icons.arrow_back),
+        ),
+      ),
+      const Center(child: Logo(height: 64)),
+      const SizedBox(height: 12),
+
+      if (_step == 'done') ...[
+        const Center(child: Text('✅', style: TextStyle(fontSize: 48))),
+        const SizedBox(height: 12),
+        _gradientTitle(context.t('Password updated!')),
+        const SizedBox(height: 8),
+        Text(context.t('Your password has been changed successfully. Redirecting you to sign in…'), style: const TextStyle(color: C.slate500)),
+        const SizedBox(height: 16),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text('← ${context.t('Back to sign in')}', style: const TextStyle(color: C.brand600))),
+
+      ] else if (_step == 'email') ...[
+        _gradientTitle(context.t('Forgot password?')),
+        const SizedBox(height: 6),
+        Text(context.t("Enter your email and we'll send you a 6-digit code."), style: const TextStyle(color: C.slate500)),
+        const SizedBox(height: 20),
+        TextField(
+          controller: _email,
+          keyboardType: TextInputType.emailAddress,
+          onSubmitted: (_) => _sendCode(),
+          decoration: InputDecoration(labelText: context.t('Email'), prefixIcon: const Icon(Icons.mail_outline)),
+        ),
+        if (_error != null) ...[const SizedBox(height: 10), Text(_error!, style: const TextStyle(color: C.red600, fontWeight: FontWeight.w600))],
+        const SizedBox(height: 18),
+        PrimaryButton(_loading ? context.t('Sending…') : context.t('Send code'), loading: _loading, onPressed: _sendCode),
+        const SizedBox(height: 10),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text('← ${context.t('Back to sign in')}', style: const TextStyle(color: C.brand600))),
+
+      ] else ...[
+        _gradientTitle(context.t('Check your email')),
+        const SizedBox(height: 6),
+        Text('${context.t('We sent a 6-digit code to')} ${_email.text.trim()}.', style: const TextStyle(color: C.slate500)),
+        const SizedBox(height: 20),
+        TextField(
+          controller: _code,
+          keyboardType: TextInputType.number,
+          maxLength: 6,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: 12),
+          decoration: InputDecoration(labelText: context.t('6-digit code'), counterText: '', prefixIcon: const Icon(Icons.pin_outlined)),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _password,
+          obscureText: _obscure,
+          decoration: InputDecoration(
+            labelText: context.t('New password'),
+            prefixIcon: const Icon(Icons.lock_outline),
+            suffixIcon: IconButton(icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined), onPressed: () => setState(() => _obscure = !_obscure)),
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _confirm,
+          obscureText: _obscure,
+          onSubmitted: (_) => _resetPassword(),
+          decoration: InputDecoration(labelText: context.t('Confirm password'), prefixIcon: const Icon(Icons.lock_outline)),
+        ),
+        if (_error != null) ...[const SizedBox(height: 10), Text(_error!, style: const TextStyle(color: C.red600, fontWeight: FontWeight.w600))],
+        const SizedBox(height: 18),
+        PrimaryButton(_loading ? context.t('Saving…') : context.t('Set new password'), loading: _loading, onPressed: _resetPassword),
+        const SizedBox(height: 8),
+        TextButton(
+          onPressed: () => setState(() { _step = 'email'; _error = null; _code.clear(); }),
+          child: Text(context.t('try again'), style: const TextStyle(color: C.brand600, fontSize: 13)),
+        ),
+      ],
     ]);
   }
 }

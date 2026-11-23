@@ -1,14 +1,16 @@
 // Restaurant-owner and driver data access — same queries/rules as
 // web/app/restaurant/actions.ts and web/app/driver/actions.ts.
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/notify.dart';
 import 'repo.dart';
 
 const _offerFields = 'offer_price_cents, offer_label, offer_ends_at, is_featured';
 const orderItemsSelect =
-    'order_items(quantity, unit_price_cents, notes, menu_items(name), order_item_options(group_name, option_name, mode, price_cents))';
+    'order_items(quantity, unit_price_cents, notes, menu_items(name, image_url), order_item_options(group_name, option_name, mode, price_cents))';
 const _editorGroupSelect =
     'id, name, kind, min_select, max_select, sort_order, created_at, menu_options(id, name, price_cents, is_default, allow_extra, is_available, sort_order)';
 
@@ -94,6 +96,11 @@ class RestaurantRepo {
 
   static Future<void> update(String id, Map<String, dynamic> fields) => sb.from('restaurants').update(fields).eq('id', id);
 
+  static Future<void> updateOwnerProfile({String? fullName}) async {
+    if (fullName == null || fullName.trim().isEmpty) return;
+    await sb.from('profiles').update({'full_name': fullName.trim()}).eq('id', _uid);
+  }
+
   static Future<void> setOpen(String id, bool open) => update(id, {'is_open': open});
 
   static Future<(int, int, int)> stats(String id) async {
@@ -113,6 +120,16 @@ class RestaurantRepo {
       .order('created_at', ascending: false)
       .limit(50);
 
+  static Future<List<Map<String, dynamic>>> completedOrders(String id, {required DateTime from, required DateTime to}) => sb
+      .from('orders')
+      .select('id, status, total_cents, created_at, profiles!orders_client_id_fkey(full_name)')
+      .eq('restaurant_id', id)
+      .inFilter('status', ['delivered', 'rejected', 'cancelled'])
+      .gte('created_at', from.toUtc().toIso8601String())
+      .lte('created_at', to.toUtc().toIso8601String())
+      .order('created_at', ascending: false)
+      .limit(100);
+
   static const _allowed = {
     'pending': ['accepted', 'rejected'],
     'accepted': ['ready_for_pickup'],
@@ -129,6 +146,7 @@ class RestaurantRepo {
       ?ts: DateTime.now().toUtc().toIso8601String(),
     }).eq('id', orderId);
     await sb.from('order_status_history').insert({'order_id': orderId, 'status': newStatus, 'changed_by': _uid});
+    unawaited(notifyOrderStatus(orderId, newStatus));
   }
 
   // ---------- Menu ----------
@@ -299,9 +317,11 @@ class DriverRepo {
     if (phone != null && phone.isNotEmpty) await sb.from('profiles').update({'phone': phone}).eq('id', _uid);
   }
 
-  static Future<void> update({required String vehicle, String? plate, required String phone}) async {
+  static Future<void> update({required String vehicle, String? plate, required String phone, String? fullName}) async {
     await sb.from('driver_profiles').update({'vehicle_type': vehicle, 'license_plate': plate}).eq('id', _uid);
-    await sb.from('profiles').update({'phone': phone}).eq('id', _uid);
+    final profileUpdate = <String, dynamic>{'phone': phone};
+    if (fullName != null && fullName.isNotEmpty) profileUpdate['full_name'] = fullName;
+    await sb.from('profiles').update(profileUpdate).eq('id', _uid);
   }
 
   static Future<void> setOnline(bool online) => sb.from('driver_profiles').update({'is_online': online}).eq('id', _uid);
@@ -325,6 +345,21 @@ class DriverRepo {
     return ((r[0] as List).length, today.length, earned);
   }
 
+  static Future<(int, int)> monthlyStats({DateTime? month}) async {
+    final now = month ?? DateTime.now();
+    final start = DateTime.utc(now.year, now.month, 1);
+    final end = now.month == 12 ? DateTime.utc(now.year + 1, 1, 1) : DateTime.utc(now.year, now.month + 1, 1);
+    final rows = await sb
+        .from('orders')
+        .select('delivery_fee_cents')
+        .eq('driver_id', _uid)
+        .eq('status', 'delivered')
+        .gte('delivered_at', start.toIso8601String())
+        .lt('delivered_at', end.toIso8601String());
+    final earned = (rows as List).fold<int>(0, (s, o) => s + ((o['delivery_fee_cents'] as num?)?.toInt() ?? 0));
+    return ((rows as List).length, earned);
+  }
+
   static Future<List<Map<String, dynamic>>> available() => sb
       .from('orders')
       .select('id, delivery_fee_cents, created_at, restaurants(name, address), client_addresses(address_line)')
@@ -334,7 +369,7 @@ class DriverRepo {
 
   static Future<List<Map<String, dynamic>>> active() => sb
       .from('orders')
-      .select('id, status, total_cents, restaurants(name, address, phone), client_addresses(address_line, latitude, longitude), profiles!orders_client_id_fkey(full_name, phone)')
+      .select('id, status, total_cents, restaurants(name, address, phone), client_addresses(address_line, latitude, longitude), profiles!orders_client_id_fkey(full_name, phone), order_items(quantity, menu_items(name, image_url))')
       .eq('driver_id', _uid)
       .inFilter('status', ['driver_assigned', 'picked_up'])
       .order('created_at', ascending: true);
@@ -359,12 +394,14 @@ class DriverRepo {
         .maybeSingle();
     if (row == null) return false;
     await sb.from('order_status_history').insert({'order_id': orderId, 'status': 'driver_assigned', 'changed_by': _uid});
+    unawaited(notifyOrderStatus(orderId, 'driver_assigned'));
     return true;
   }
 
   static Future<void> markPickedUp(String orderId) async {
     await sb.from('orders').update({'status': 'picked_up', 'picked_up_at': DateTime.now().toUtc().toIso8601String()}).eq('id', orderId).eq('driver_id', _uid);
     await sb.from('order_status_history').insert({'order_id': orderId, 'status': 'picked_up', 'changed_by': _uid});
+    unawaited(notifyOrderStatus(orderId, 'picked_up'));
   }
 
   static Future<void> markDelivered(String orderId) async {
@@ -374,5 +411,6 @@ class DriverRepo {
       'payment_status': 'paid',
     }).eq('id', orderId).eq('driver_id', _uid);
     await sb.from('order_status_history').insert({'order_id': orderId, 'status': 'delivered', 'changed_by': _uid});
+    unawaited(notifyOrderStatus(orderId, 'delivered'));
   }
 }

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "185627282611",
+    "project_id": "foodivo-6e761",
+    "storage_bucket": "foodivo-6e761.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:185627282611:android:874e7965926a5b8e73f4c6",
+        "android_client_info": {
+          "package_name": "com.foodivo.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBIgLbGJScrFd_yQk5mx3czGoID16L5vhE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

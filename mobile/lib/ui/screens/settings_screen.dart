@@ -82,7 +82,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Map<String, dynamic>? _profile;
   List<Address> _addresses = [];
   final _phone = TextEditingController();
-  bool _savingPhone = false;
+  final _name = TextEditingController();
+  bool _savingProfile = false;
 
   @override
   void initState() {
@@ -97,22 +98,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _profile = results[0] as Map<String, dynamic>?;
         _addresses = results[1] as List<Address>;
         _phone.text = (_profile?['phone'] as String?) ?? '';
+        _name.text = (_profile?['full_name'] as String?) ?? '';
       });
     } catch (e) {
       if (mounted) showError(context, context.i18n.t(errorMessage(e)));
     }
   }
 
-  Future<void> _savePhone() async {
-    if (_phone.text.trim().isEmpty) return showError(context, context.i18n.t('Phone number is required'));
-    setState(() => _savingPhone = true);
+  Future<void> _saveProfile() async {
+    setState(() => _savingProfile = true);
     try {
-      await Repo.updatePhone(_phone.text.trim());
+      await Repo.updateProfile(fullName: _name.text.trim(), phone: _phone.text.trim());
       if (mounted) showToast(context, context.i18n.t('Saved'));
+      await _load();
     } catch (e) {
       if (mounted) showError(context, context.i18n.t(errorMessage(e)));
     } finally {
-      if (mounted) setState(() => _savingPhone = false);
+      if (mounted) setState(() => _savingProfile = false);
     }
   }
 
@@ -163,11 +165,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 12),
           CardBox(
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              Text(context.t('Phone number'), style: const TextStyle(fontWeight: FontWeight.w800)),
+              Text(context.t('Your account'), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
               const SizedBox(height: 10),
-              TextField(controller: _phone, keyboardType: TextInputType.phone, decoration: const InputDecoration(prefixIcon: Icon(Icons.phone_outlined))),
+              TextField(controller: _name, decoration: InputDecoration(labelText: context.t('Full name'), prefixIcon: const Icon(Icons.person_outlined))),
               const SizedBox(height: 10),
-              Align(alignment: Alignment.centerLeft, child: PrimaryButton(context.t('Save phone'), expand: false, loading: _savingPhone, onPressed: _savePhone)),
+              TextField(controller: _phone, keyboardType: TextInputType.phone, decoration: InputDecoration(labelText: context.t('Phone number'), prefixIcon: const Icon(Icons.phone_outlined))),
+              const SizedBox(height: 14),
+              PrimaryButton(context.t('Save changes'), loading: _savingProfile, onPressed: _saveProfile),
             ]),
           ),
           const SizedBox(height: 12),

@@ -2,8 +2,10 @@
 
 import { DELIVERY_FEE } from "@/lib/currency";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { randomUUID } from "crypto";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getT } from "@/lib/i18n/server";
 import { OFFER_FIELDS, effectiveBasePrice } from "@/lib/offers";
 import {
@@ -13,6 +15,7 @@ import {
   type MenuOptionGroup,
   type OptionSelection,
 } from "@/lib/menu-options";
+import { sendOrderStatusEmails } from "@/lib/email";
 
 
 async function requireUser() {
@@ -75,6 +78,17 @@ export async function updateClientPhone(formData: FormData) {
     .eq("id", user.id);
   if (error) throw new Error(error.message);
   revalidatePath("/client/settings");
+}
+
+export async function updateClientProfile(formData: FormData) {
+  const { supabase, user } = await requireUser();
+  const update: Record<string, string> = { phone: formData.get("phone") as string };
+  const fullName = (formData.get("full_name") as string)?.trim();
+  if (fullName) update.full_name = fullName;
+  const { error } = await supabase.from("profiles").update(update).eq("id", user.id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/client/settings");
+  redirect("/client/settings?saved=1");
 }
 
 export async function deleteAddress(addressId: string) {
@@ -223,6 +237,99 @@ export async function placeOrder(input: PlaceOrderInput) {
     changed_by: user.id,
   });
 
+  // Fire-and-forget order placement emails (client confirmation + restaurant alert)
+  void (async () => {
+    try {
+      const { data: restaurant } = await supabase
+        .from("restaurants")
+        .select("name, owner_id")
+        .eq("id", input.restaurantId)
+        .single();
+      const admin = createAdminClient();
+      const [clientRes, restaurantRes] = await Promise.all([
+        admin.auth.admin.getUserById(user.id),
+        restaurant?.owner_id ? admin.auth.admin.getUserById(restaurant.owner_id) : Promise.resolve({ data: { user: null } }),
+      ]);
+      await sendOrderStatusEmails({
+        orderId: order.id,
+        status: "pending",
+        clientEmail: clientRes.data.user?.email ?? null,
+        clientName: null,
+        restaurantEmail: restaurantRes.data.user?.email ?? null,
+        restaurantName: restaurant?.name ?? null,
+        driverName: null,
+        totalCents: totalCents,
+      });
+    } catch {}
+  })();
+
   revalidatePath("/client/orders");
   return order.id as string;
+}
+
+export async function cancelOrder(orderId: string) {
+  const { supabase, user } = await requireUser();
+  const t = getT();
+
+  const { data: order } = await supabase
+    .from("orders")
+    .select("id, status")
+    .eq("id", orderId)
+    .eq("client_id", user.id)
+    .single();
+
+  if (!order) throw new Error(t("Order not found."));
+  if (order.status !== "pending") throw new Error(t("Only pending orders can be cancelled"));
+
+  const { error } = await supabase
+    .from("orders")
+    .update({ status: "cancelled" })
+    .eq("id", orderId);
+  if (error) throw new Error(error.message);
+
+  await supabase.from("order_status_history").insert({
+    order_id: orderId,
+    status: "cancelled",
+    changed_by: user.id,
+  });
+
+  revalidatePath(`/client/orders/${orderId}`);
+  revalidatePath("/client/orders");
+}
+
+export async function submitReview({
+  orderId,
+  restaurantRating,
+  driverRating,
+  comment,
+}: {
+  orderId: string;
+  restaurantRating: number;
+  driverRating: number | null;
+  comment: string | null;
+}) {
+  const { supabase, user } = await requireUser();
+
+  const { data: order } = await supabase
+    .from("orders")
+    .select("id, status")
+    .eq("id", orderId)
+    .eq("client_id", user.id)
+    .single();
+
+  if (!order) throw new Error("Order not found.");
+  if (order.status !== "delivered") throw new Error("Can only review delivered orders");
+
+  const { error } = await supabase.from("reviews").upsert(
+    {
+      order_id: orderId,
+      client_id: user.id,
+      restaurant_rating: restaurantRating,
+      driver_rating: driverRating,
+      comment,
+    },
+    { onConflict: "order_id" }
+  );
+  if (error) throw new Error(error.message);
+  revalidatePath(`/client/orders/${orderId}`);
 }

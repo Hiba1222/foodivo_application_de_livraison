@@ -6,6 +6,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/money.dart';
+import '../../core/order_codes.dart';
 import '../../core/theme.dart';
 import '../../data/repo.dart';
 import '../../data/staff_repo.dart';
@@ -250,6 +251,8 @@ class _Overview extends StatefulWidget {
 
 class _OverviewState extends State<_Overview> {
   (int, int, int)? _stats;
+  (int, int)? _monthly;
+  DateTime _month = DateTime.now();
   bool _toggling = false;
   StreamSubscription? _live;
   String? _name, _avatar;
@@ -272,9 +275,27 @@ class _OverviewState extends State<_Overview> {
 
   Future<void> _refresh() async {
     try {
-      final s = await DriverRepo.stats();
-      if (mounted) setState(() => _stats = s);
+      final results = await Future.wait([
+        DriverRepo.stats(),
+        DriverRepo.monthlyStats(month: _month),
+      ]);
+      if (mounted) setState(() {
+        _stats = results[0] as (int, int, int);
+        _monthly = results[1] as (int, int);
+      });
     } catch (_) {}
+  }
+
+  void _prevMonth() {
+    setState(() => _month = DateTime(_month.year, _month.month - 1));
+    _refresh();
+  }
+
+  void _nextMonth() {
+    final now = DateTime.now();
+    if (_month.year == now.year && _month.month == now.month) return;
+    setState(() => _month = DateTime(_month.year, _month.month + 1));
+    _refresh();
   }
 
   Future<void> _toggle() async {
@@ -340,6 +361,30 @@ class _OverviewState extends State<_Overview> {
           ),
           const SizedBox(height: 12),
           StatCard(index: 2, emoji: '💰', tint: C.amber500, label: context.t('Earnings today'), value: s?.$3, format: formatPrice),
+          const SizedBox(height: 20),
+          Row(children: [
+            GestureDetector(
+              onTap: _prevMonth,
+              child: const Icon(Icons.chevron_left, color: C.slate500),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                '${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][_month.month - 1]} ${_month.year}',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: C.slate500, letterSpacing: 0.5),
+              ),
+            ),
+            if (!(_month.year == DateTime.now().year && _month.month == DateTime.now().month))
+              GestureDetector(
+                onTap: _nextMonth,
+                child: const Icon(Icons.chevron_right, color: C.slate500),
+              ),
+          ]),
+          const SizedBox(height: 8),
+          StatRow(
+            StatCard(index: 3, emoji: '📦', tint: C.indigo700, label: context.t('Deliveries this month'), value: _monthly?.$1),
+            StatCard(index: 4, emoji: '💵', tint: C.green600, label: context.t('Earnings this month'), value: _monthly?.$2, format: formatPrice),
+          ),
           if (approved && d['is_online'] != true) ...[
             const SizedBox(height: 16),
             FadeInUp(
@@ -732,6 +777,59 @@ class _MyDeliveriesState extends State<_MyDeliveries> {
             ],
           ]),
         ),
+        // Order items (compact chips)
+        Builder(builder: (_) {
+          final items = (o['order_items'] as List?) ?? const [];
+          if (items.isEmpty) return const SizedBox.shrink();
+          return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Divider(height: 24),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              for (final oi in items)
+                Container(
+                  padding: const EdgeInsets.only(right: 10),
+                  decoration: BoxDecoration(color: C.slate50, borderRadius: BorderRadius.circular(10), border: Border.all(color: C.slate200)),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    ClipRRect(
+                      borderRadius: const BorderRadius.horizontal(left: Radius.circular(9)),
+                      child: SizedBox(width: 32, height: 32, child: NetImage(oi['menu_items']?['image_url'] as String?)),
+                    ),
+                    const SizedBox(width: 8),
+                    Text('${oi['quantity']}× ${oi['menu_items']?['name'] ?? ''}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: C.slate700)),
+                  ]),
+                ),
+            ]),
+            const SizedBox(height: 4),
+          ]);
+        }),
+        const SizedBox(height: 14),
+        // Verification codes
+        Row(children: [
+          if (!pickedUp)
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(right: 6),
+                decoration: BoxDecoration(color: const Color(0xFFEEF2FF), borderRadius: BorderRadius.circular(14)),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(context.t('Pickup code'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: C.indigo700)),
+                  Text(pickupCode(o['id']), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: 4, color: C.indigo700)),
+                  Text(context.t('Show to restaurant'), style: const TextStyle(fontSize: 10, color: C.indigo700)),
+                ]),
+              ),
+            ),
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              margin: EdgeInsets.only(left: pickedUp ? 0 : 6),
+              decoration: BoxDecoration(color: const Color(0xFFF0FDF4), borderRadius: BorderRadius.circular(14)),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(context.t('Delivery code'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: C.green700)),
+                Text(deliveryCode(o['id']), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: 4, color: C.green700)),
+                Text(context.t('Ask client for this code'), style: const TextStyle(fontSize: 10, color: C.green600)),
+              ]),
+            ),
+          ),
+        ]),
         const SizedBox(height: 14),
         AnimatedSwitcher(
           duration: const Duration(milliseconds: 350),
@@ -868,6 +966,7 @@ class _SettingsState extends State<_Settings> {
   late String _vehicle = widget.driver['vehicle_type'] ?? 'bike';
   late final _plate = TextEditingController(text: widget.driver['license_plate'] ?? '');
   final _phone = TextEditingController();
+  final _name = TextEditingController();
   Map<String, dynamic>? _profile;
   bool _saving = false;
 
@@ -878,6 +977,7 @@ class _SettingsState extends State<_Settings> {
       if (!mounted) return;
       setState(() => _profile = p);
       _phone.text = p?['phone'] ?? '';
+      _name.text = p?['full_name'] ?? '';
     });
   }
 
@@ -886,7 +986,7 @@ class _SettingsState extends State<_Settings> {
     if (_phone.text.trim().isEmpty) return showError(context, i.t('Phone number is required'));
     setState(() => _saving = true);
     try {
-      await DriverRepo.update(vehicle: _vehicle, plate: _plate.text.trim().isEmpty ? null : _plate.text.trim(), phone: _phone.text.trim());
+      await DriverRepo.update(vehicle: _vehicle, plate: _plate.text.trim().isEmpty ? null : _plate.text.trim(), phone: _phone.text.trim(), fullName: _name.text.trim().isEmpty ? null : _name.text.trim());
       if (mounted) showToast(context, i.t('Saved'));
       widget.onSaved();
     } catch (e) {
@@ -923,6 +1023,8 @@ class _SettingsState extends State<_Settings> {
         const SizedBox(height: 12),
         CardBox(
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            TextField(controller: _name, decoration: InputDecoration(labelText: context.t('Full name'), prefixIcon: const Icon(Icons.person_outlined))),
+            const SizedBox(height: 14),
             TextField(controller: _phone, keyboardType: TextInputType.phone, decoration: InputDecoration(labelText: context.t('Phone number'), prefixIcon: const Icon(Icons.phone_outlined))),
             const SizedBox(height: 14),
             Text(context.t('Vehicle type'), style: const TextStyle(fontWeight: FontWeight.w700)),
@@ -932,6 +1034,16 @@ class _SettingsState extends State<_Settings> {
             TextField(controller: _plate, decoration: InputDecoration(labelText: context.t('License plate'))),
             const SizedBox(height: 16),
             PrimaryButton(context.t('Save changes'), loading: _saving, onPressed: _save),
+          ]),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(color: const Color(0xFFFFFBEB), borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFFDE68A))),
+          child: Row(children: [
+            const Text('💡', style: TextStyle(fontSize: 18)),
+            const SizedBox(width: 10),
+            Expanded(child: Text(context.t("Foodivo takes a 10% platform fee from your delivery earnings on each completed order."), style: const TextStyle(fontSize: 12, color: Color(0xFF92400E)))),
           ]),
         ),
         const SizedBox(height: 12),

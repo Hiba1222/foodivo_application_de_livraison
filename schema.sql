@@ -168,7 +168,8 @@ create table reviews (
   restaurant_rating int check (restaurant_rating between 1 and 5),
   driver_rating int check (driver_rating between 1 and 5),
   comment text,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  unique (order_id)   -- one review per order, enables upsert
 );
 
 -- ------------------------------------------------------------
@@ -201,8 +202,22 @@ create or replace function auth_role() returns user_role as $$
 $$ language sql stable security definer;
 
 -- profiles: everyone can read their own; admins read all.
+-- Restaurants and drivers can also read the profile of clients whose orders they handle.
 create policy "profiles_self_select" on profiles for select
   using (id = auth.uid() or auth_role() = 'admin');
+create policy "profiles_order_party_select" on profiles for select
+  using (
+    id in (
+      select o.client_id from orders o
+      join restaurants r on r.id = o.restaurant_id
+      where r.owner_id = auth.uid()
+    )
+    or
+    id in (
+      select o.client_id from orders o
+      where o.driver_id = auth.uid()
+    )
+  );
 create policy "profiles_self_update" on profiles for update
   using (id = auth.uid());
 -- Lets a freshly-signed-up user create their own profile row (their id must

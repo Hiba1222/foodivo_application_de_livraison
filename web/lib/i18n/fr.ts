@@ -65,6 +65,43 @@ export const fr: Record<string, string> = {
   "Not authorized": "Accès refusé",
   "Your account doesn't have access to this section.": "Votre compte n'a pas accès à cette section.",
   "Back to login": "Retour à la connexion",
+  "Forgot password?": "Mot de passe oublié ?",
+  "Enter your email address and we'll send you a 6-digit code.":
+    "Entrez votre adresse e-mail et nous vous enverrons un code à 6 chiffres.",
+  "Enter your email and we'll send you a 6-digit code.":
+    "Entrez votre e-mail et nous vous enverrons un code à 6 chiffres.",
+  "Send code": "Envoyer le code",
+  "We sent a 6-digit code to": "Nous avons envoyé un code à 6 chiffres à",
+  "Enter it below with your new password.": "Entrez-le ci-dessous avec votre nouveau mot de passe.",
+  "6-digit code": "Code à 6 chiffres",
+  "Invalid or expired code. Please request a new one.": "Code invalide ou expiré. Veuillez en demander un nouveau.",
+  "Enter your email address and we'll send you a link to reset your password.":
+    "Entrez votre adresse e-mail et nous vous enverrons un lien pour réinitialiser votre mot de passe.",
+  "Send reset link": "Envoyer le lien",
+  "Sending…": "Envoi…",
+  "Back to sign in": "Retour à la connexion",
+  "Check your email": "Vérifiez votre e-mail",
+  "We sent a password reset link to": "Nous avons envoyé un lien de réinitialisation à",
+  "Click the link in the email to choose a new password.":
+    "Cliquez sur le lien dans l'e-mail pour choisir un nouveau mot de passe.",
+  "Didn't receive it? Check your spam folder or": "Vous ne l'avez pas reçu ? Vérifiez vos spams ou",
+  "try again": "réessayez",
+  "Set new password": "Définir un nouveau mot de passe",
+  "Choose a strong password of at least 6 characters.":
+    "Choisissez un mot de passe fort d'au moins 6 caractères.",
+  "New password": "Nouveau mot de passe",
+  "Confirm password": "Confirmer le mot de passe",
+  "Passwords do not match.": "Les mots de passe ne correspondent pas.",
+  "Password must be at least 6 characters": "Le mot de passe doit comporter au moins 6 caractères",
+  "Saving…": "Enregistrement…",
+  "Password updated!": "Mot de passe mis à jour !",
+  "Your password has been changed successfully. Redirecting you to sign in…":
+    "Votre mot de passe a été modifié avec succès. Redirection vers la connexion…",
+  "Verifying reset link…": "Vérification du lien…",
+  "Link expired": "Lien expiré",
+  "This reset link is invalid or has expired. Please request a new one.":
+    "Ce lien de réinitialisation est invalide ou a expiré. Veuillez en demander un nouveau.",
+  "Request a new link": "Demander un nouveau lien",
 
   // ---------- Client: browse ----------
   "Hungry?": "Une petite faim ?",
@@ -84,6 +121,7 @@ export const fr: Record<string, string> = {
   "Restaurant not found.": "Restaurant introuvable.",
   "Back to restaurants": "Retour aux restaurants",
   "All restaurants": "Tous les restaurants",
+  "All time": "Toute la période",
   Other: "Autres",
   "No menu items available right now.": "Aucun plat disponible pour le moment.",
   Customizable: "Personnalisable",
@@ -169,6 +207,17 @@ export const fr: Record<string, string> = {
   Call: "Appeler",
   Items: "Articles",
   "Driver location": "Position du livreur",
+  "Cancel order": "Annuler la commande",
+  "Cancel this order? This cannot be undone.": "Annuler cette commande ? Cette action est irréversible.",
+  "Cancelling…": "Annulation…",
+  "Only pending orders can be cancelled": "Seules les commandes en attente peuvent être annulées",
+  "Rate your order": "Évaluer votre commande",
+  "Please rate the restaurant.": "Veuillez noter le restaurant.",
+  "Leave a comment (optional)": "Laisser un commentaire (facultatif)",
+  "Submit review": "Envoyer l'avis",
+  "Submitting…": "Envoi…",
+  "Thanks for your review!": "Merci pour votre avis !",
+  "Your review": "Votre avis",
 
   // ---------- Client: profile / settings ----------
   "Just one more thing": "Encore une petite chose",
@@ -222,6 +271,16 @@ export const fr: Record<string, string> = {
     "Photo de couverture — visible par les clients qui parcourent les restaurants",
   Name: "Nom",
   "Save changes": "Enregistrer",
+
+  // ---------- Restaurant: analytics ----------
+  Analytics: "Analyses",
+  "Last 30 days": "30 derniers jours",
+  "Revenue (30 days)": "Chiffre d'affaires (30 j.)",
+  "Orders delivered (30 days)": "Commandes livrées (30 j.)",
+  "Average rating": "Note moyenne",
+  "No reviews yet": "Pas encore d'avis",
+  "Daily revenue": "Chiffre d'affaires quotidien",
+  "Top-selling items": "Plats les plus vendus",
 
   // ---------- Restaurant: orders ----------
   "New orders need a response. Accepted orders should be marked ready when the food is packed.":
@@ -448,12 +507,62 @@ export const fr: Record<string, string> = {
   "Remove offer": "Retirer l'offre",
   Saved: "Enregistré",
 
+  // ---------- Verification codes ----------
+  "Driver pickup code": "Code de retrait du livreur",
+  "Ask the driver for this code before handing over the order.": "Demandez ce code au livreur avant de remettre la commande.",
+  "Your delivery code": "Votre code de livraison",
+  "Share this code with your driver to confirm your identity.": "Partagez ce code avec votre livreur pour confirmer votre identité.",
+  "Pickup code": "Code de retrait",
+  "Show to restaurant": "Montrez au restaurant",
+  "Delivery code": "Code de livraison",
+  "Ask client for this code": "Demandez ce code au client",
+
+  // ---------- Driver earnings ----------
+  Today: "Aujourd'hui",
+  "Deliveries this month": "Livraisons ce mois-ci",
+  "Earnings this month": "Gains ce mois-ci",
+
+  // ---------- Platform fee ----------
+  "Platform earnings (10% fee)": "Revenus de la plateforme (10 %)",
+  "Total platform fee": "Frais de plateforme totaux",
+  "From restaurants (10% of food)": "Des restaurants (10 % de la nourriture)",
+  "From drivers (10% of delivery fee)": "Des livreurs (10 % des frais de livraison)",
+  "Platform fees (10%)": "Frais de plateforme (10 %)",
+  "From restaurants": "Des restaurants",
+  "From drivers": "Des livreurs",
+  Suspended: "Suspendu",
+  Removed: "Supprimé",
+  "Loading…": "Chargement…",
+  "Search by name or phone…": "Rechercher par nom ou téléphone…",
+  users: "utilisateurs",
+  "Disapprove this restaurant?": "Désapprouver ce restaurant ?",
+  "Disapprove this driver?": "Désapprouver ce livreur ?",
+  "Suspend this restaurant?": "Suspendre ce restaurant ?",
+  "Suspend this driver?": "Suspendre ce livreur ?",
+  Disapproved: "Désapprouvé",
+  "Foodivo takes a 10% platform fee from your delivery earnings on each completed order.":
+    "Foodivo prélève 10 % de frais de plateforme sur vos gains de livraison pour chaque commande complétée.",
+  "Foodivo takes a 10% platform fee from your food revenue on each completed order.":
+    "Foodivo prélève 10 % de frais de plateforme sur votre chiffre d'affaires alimentaire pour chaque commande complétée.",
+
+  // ---------- Profile ----------
+  "Saved successfully": "Enregistré avec succès",
+  "Your account": "Votre compte",
+
   // ---------- Admin ----------
   "Platform overview": "Vue d'ensemble de la plateforme",
   "Live snapshot across all restaurants, drivers, and orders.":
     "Aperçu en direct de tous les restaurants, livreurs et commandes.",
   "Total orders": "Commandes totales",
   "Active orders": "Commandes en cours",
+  "Order history": "Historique des commandes",
+  "No active orders right now.": "Aucune commande active pour le moment.",
+  "No orders for this period.": "Aucune commande pour cette période.",
+  Day: "Jour",
+  Month: "Mois",
+  orders: "commandes",
+  delivered: "livrées",
+  revenue: "chiffre d'affaires",
   "Restaurants pending approval": "Restaurants en attente d'approbation",
   "Drivers pending approval": "Livreurs en attente d'approbation",
   "Total revenue (paid orders)": "Chiffre d'affaires total (commandes payées)",
@@ -467,6 +576,7 @@ export const fr: Record<string, string> = {
   Approved: "Approuvé",
   Suspend: "Suspendre",
   Approve: "Approuver",
+  Disapprove: "Désapprouver",
   "No restaurants yet.": "Aucun restaurant pour le moment.",
   Phone: "Téléphone",
   Vehicle: "Véhicule",
@@ -482,4 +592,19 @@ export const fr: Record<string, string> = {
   Role: "Rôle",
   Joined: "Inscrit le",
   "No users yet.": "Aucun utilisateur pour le moment.",
+
+  // ---------- Admin: fees ----------
+  Fees: "Frais",
+  "Platform fees": "Frais de plateforme",
+  "10% on food subtotal + 10% on delivery fee": "10 % sur le sous-total nourriture + 10 % sur les frais de livraison",
+  "Total platform fees": "Total des frais plateforme",
+  "Total revenue (paid)": "Chiffre d'affaires total (payé)",
+  "Daily fees": "Frais quotidiens",
+  "{n} paid orders": "{n} commandes payées",
+  Date: "Date",
+  "Order total": "Total commande",
+  "Restaurant fee": "Frais restaurant",
+  "Driver fee": "Frais livreur",
+  "Platform fee": "Frais plateforme",
+  "No paid orders in this period.": "Aucune commande payée sur cette période.",
 };

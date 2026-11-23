@@ -1,8 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getT } from "@/lib/i18n/server";
+import { sendOrderStatusEmails } from "@/lib/email";
+import { sendPushToClient } from "@/lib/fcm";
 
 async function requireUser() {
   const supabase = createClient();
@@ -45,13 +49,18 @@ export async function updateDriverProfile(formData: FormData) {
     .eq("id", user.id);
   if (driverError) throw new Error(driverError.message);
 
+  const profileUpdate: Record<string, string> = { phone: formData.get("phone") as string };
+  const fullName = (formData.get("full_name") as string)?.trim();
+  if (fullName) profileUpdate.full_name = fullName;
+
   const { error: profileError } = await supabase
     .from("profiles")
-    .update({ phone: formData.get("phone") as string })
+    .update(profileUpdate)
     .eq("id", user.id);
   if (profileError) throw new Error(profileError.message);
 
   revalidatePath("/driver/settings");
+  redirect("/driver/settings?saved=1");
 }
 
 export async function toggleOnline(isOnline: boolean) {
@@ -82,6 +91,38 @@ export async function updateLocation(latitude: number, longitude: number) {
   });
 }
 
+// ─── Email helper ─────────────────────────────────────────────────────────────
+
+async function notifyOrderStatus(supabase: ReturnType<typeof createClient>, orderId: string, status: string, driverName: string | null) {
+  void (async () => {
+    try {
+      const { data: order } = await supabase
+        .from("orders")
+        .select("client_id, total_cents, restaurants(name, owner_id), profiles!orders_client_id_fkey(full_name)")
+        .eq("id", orderId)
+        .single();
+      if (!order) return;
+      const restaurant = order.restaurants as any;
+      const admin = createAdminClient();
+      const [clientRes, restaurantRes] = await Promise.all([
+        admin.auth.admin.getUserById(order.client_id),
+        restaurant?.owner_id ? admin.auth.admin.getUserById(restaurant.owner_id) : Promise.resolve({ data: { user: null } }),
+      ]);
+      await sendOrderStatusEmails({
+        orderId,
+        status,
+        clientEmail: clientRes.data.user?.email ?? null,
+        clientName: (order.profiles as any)?.full_name ?? null,
+        restaurantEmail: restaurantRes.data.user?.email ?? null,
+        restaurantName: restaurant?.name ?? null,
+        driverName,
+        totalCents: order.total_cents,
+      });
+      sendPushToClient(order.client_id, status);
+    } catch {}
+  })();
+}
+
 // ---------- Deliveries ----------
 
 export async function acceptDelivery(orderId: string) {
@@ -108,6 +149,9 @@ export async function acceptDelivery(orderId: string) {
     changed_by: user.id,
   });
 
+  const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user.id).single();
+  notifyOrderStatus(supabase, orderId, "driver_assigned", (profile as any)?.full_name ?? null);
+
   revalidatePath("/driver/available");
   revalidatePath("/driver/my-deliveries");
 }
@@ -126,6 +170,7 @@ export async function markPickedUp(orderId: string) {
     status: "picked_up",
     changed_by: user.id,
   });
+  notifyOrderStatus(supabase, orderId, "picked_up", null);
   revalidatePath("/driver/my-deliveries");
 }
 
@@ -147,6 +192,7 @@ export async function markDelivered(orderId: string) {
     status: "delivered",
     changed_by: user.id,
   });
+  notifyOrderStatus(supabase, orderId, "delivered", null);
   revalidatePath("/driver/my-deliveries");
   revalidatePath("/driver/history");
 }

@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/notify.dart';
 import 'models.dart';
 
 SupabaseClient get sb => Supabase.instance.client;
@@ -19,6 +22,14 @@ class Repo {
 
   static Future<void> updatePhone(String phone) async {
     await sb.from('profiles').update({'phone': phone}).eq('id', sb.auth.currentUser!.id);
+  }
+
+  static Future<void> updateProfile({String? fullName, String? phone}) async {
+    final update = <String, dynamic>{};
+    if (fullName != null && fullName.trim().isNotEmpty) update['full_name'] = fullName.trim();
+    if (phone != null && phone.trim().isNotEmpty) update['phone'] = phone.trim();
+    if (update.isEmpty) return;
+    await sb.from('profiles').update(update).eq('id', sb.auth.currentUser!.id);
   }
 
   // ---------- Browse ----------
@@ -111,7 +122,8 @@ class Repo {
       'p_items': items,
       'p_notes': notes,
     });
-    return id as String;
+    unawaited(notifyOrderStatus(id as String, 'pending'));
+    return id;
   }
 
   static Future<List<OrderSummary>> myOrders() async {
@@ -146,6 +158,47 @@ class Repo {
   static Future<DriverInfo?> orderDriver(String orderId) async {
     final rows = await sb.rpc('get_order_driver', params: {'p_order_id': orderId}) as List;
     return rows.isEmpty ? null : DriverInfo.fromJson(rows.first);
+  }
+
+  static Future<void> cancelOrder(String orderId) async {
+    final uid = sb.auth.currentUser!.id;
+    final row = await sb
+        .from('orders')
+        .select('id, status')
+        .eq('id', orderId)
+        .eq('client_id', uid)
+        .single();
+    if (row['status'] != 'pending') throw Exception('Only pending orders can be cancelled');
+    await sb.from('orders').update({'status': 'cancelled'}).eq('id', orderId);
+    await sb.from('order_status_history').insert({
+      'order_id': orderId,
+      'status': 'cancelled',
+      'changed_by': uid,
+    });
+  }
+
+  static Future<Map<String, dynamic>?> getReview(String orderId) async {
+    return sb
+        .from('reviews')
+        .select('id, restaurant_rating, driver_rating, comment')
+        .eq('order_id', orderId)
+        .maybeSingle();
+  }
+
+  static Future<void> submitReview({
+    required String orderId,
+    required int restaurantRating,
+    int? driverRating,
+    String? comment,
+  }) async {
+    final uid = sb.auth.currentUser!.id;
+    await sb.from('reviews').upsert({
+      'order_id': orderId,
+      'client_id': uid,
+      'restaurant_rating': restaurantRating,
+      if (driverRating != null) 'driver_rating': driverRating,
+      if (comment != null && comment.trim().isNotEmpty) 'comment': comment.trim(),
+    }, onConflict: 'order_id');
   }
 }
 

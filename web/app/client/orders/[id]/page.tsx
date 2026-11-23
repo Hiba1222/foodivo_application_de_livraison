@@ -4,8 +4,11 @@ import OrderItemOptions from "@/components/OrderItemOptions";
 import { ORDER_ITEMS_SELECT } from "@/lib/order-items";
 import RealtimeRefresher from "@/components/RealtimeRefresher";
 import DriverLocationMap from "./DriverLocationMap";
+import CancelOrderButton from "@/components/CancelOrderButton";
+import ReviewForm from "@/components/ReviewForm";
 import { getLocale, getT } from "@/lib/i18n/server";
 import { formatDateTime, formatTime } from "@/lib/i18n/core";
+import { deliveryCode } from "@/lib/order-codes";
 
 const STATUS_FLOW = [
   "pending",
@@ -33,7 +36,7 @@ export default async function ClientOrderDetailPage({ params }: { params: { id: 
   const locale = getLocale();
   const supabase = createClient();
 
-  const [{ data: order }, { data: history }] = await Promise.all([
+  const [{ data: order }, { data: history }, { data: review }] = await Promise.all([
     supabase
       .from("orders")
       .select(
@@ -46,6 +49,11 @@ export default async function ClientOrderDetailPage({ params }: { params: { id: 
       .select("status, changed_at")
       .eq("order_id", params.id)
       .order("changed_at", { ascending: true }),
+    supabase
+      .from("reviews")
+      .select("id, restaurant_rating, driver_rating, comment")
+      .eq("order_id", params.id)
+      .maybeSingle(),
   ]);
 
   if (!order) return <p className="text-slate-500">{t("Order not found.")}</p>;
@@ -131,6 +139,17 @@ export default async function ClientOrderDetailPage({ params }: { params: { id: 
         )}
       </div>
 
+      {/* Delivery verification code — shown when driver is assigned */}
+      {order.driver_id && (order.status === "driver_assigned" || order.status === "picked_up") && (
+        <div className="mt-4 flex items-center gap-4 rounded-2xl bg-green-50 px-5 py-4 ring-1 ring-green-200">
+          <div>
+            <p className="text-xs font-semibold text-green-600">{t("Your delivery code")}</p>
+            <p className="text-3xl font-black tracking-widest text-green-800">{deliveryCode(order.id)}</p>
+          </div>
+          <p className="text-xs text-green-600">{t("Share this code with your driver to confirm your identity.")}</p>
+        </div>
+      )}
+
       {/* Driver info + live location */}
       {driverInfo && (
         <div className="mt-4 animate-scale-in overflow-hidden rounded-2xl bg-white shadow-soft ring-1 ring-slate-200/70">
@@ -176,6 +195,28 @@ export default async function ClientOrderDetailPage({ params }: { params: { id: 
               />
             </div>
           )}
+        </div>
+      )}
+
+      {/* Cancel button — only while pending */}
+      {order.status === "pending" && (
+        <CancelOrderButton orderId={order.id} />
+      )}
+
+      {/* Review form — only after delivery and not yet reviewed */}
+      {order.status === "delivered" && !review && (
+        <ReviewForm orderId={order.id} hasDriver={!!order.driver_id} />
+      )}
+
+      {/* Show existing review */}
+      {order.status === "delivered" && review && (
+        <div className="mt-4 rounded-2xl bg-amber-50 p-5 ring-1 ring-amber-200">
+          <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">{t("Your review")}</p>
+          <div className="mt-2 flex gap-4 text-sm">
+            <span>🍽️ {"⭐".repeat(review.restaurant_rating ?? 0)}</span>
+            {review.driver_rating && <span>🛵 {"⭐".repeat(review.driver_rating)}</span>}
+          </div>
+          {review.comment && <p className="mt-1 text-sm text-slate-600">{review.comment}</p>}
         </div>
       )}
 

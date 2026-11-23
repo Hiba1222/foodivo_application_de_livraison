@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { setRestaurantApproval } from "@/app/admin/actions";
+import { setRestaurantApproval, disapproveRestaurant } from "@/app/admin/actions";
 import type { Restaurant } from "@/lib/types";
 import { getT } from "@/lib/i18n/server";
 import type { TFn } from "@/lib/i18n/core";
@@ -44,7 +44,7 @@ export default async function AdminRestaurantsPage() {
               <th className="px-4 py-3 font-medium">{t("Cuisine")}</th>
               <th className="px-4 py-3 font-medium">{t("Address")}</th>
               <th className="px-4 py-3 font-medium">{t("Status")}</th>
-              <th className="px-4 py-3 font-medium">{t("Action")}</th>
+              <th className="px-4 py-3 font-medium">{t("Actions")}</th>
             </tr>
           </thead>
           <tbody>
@@ -57,20 +57,37 @@ export default async function AdminRestaurantsPage() {
                   <Badge approved={r.is_approved} t={t} />
                 </td>
                 <td className="px-4 py-3">
-                  <form
-                    action={setRestaurantApproval.bind(null, r.id, !r.is_approved)}
-                  >
-                    <button
-                      type="submit"
-                      className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
-                        r.is_approved
-                          ? "bg-red-50 text-red-700 hover:bg-red-100"
-                          : "bg-brand-600 text-white hover:bg-brand-700"
-                      }`}
-                    >
-                      {r.is_approved ? t("Suspend") : t("Approve")}
-                    </button>
-                  </form>
+                  <div className="flex items-center gap-2">
+                    {r.is_approved ? (
+                      <form action={setRestaurantApproval.bind(null, r.id, false)}>
+                        <button
+                          type="submit"
+                          className="rounded-lg px-3 py-1.5 text-xs font-semibold bg-amber-50 text-amber-700 hover:bg-amber-100"
+                        >
+                          {t("Suspend")}
+                        </button>
+                      </form>
+                    ) : (
+                      <>
+                        <form action={setRestaurantApproval.bind(null, r.id, true)}>
+                          <button
+                            type="submit"
+                            className="rounded-lg px-3 py-1.5 text-xs font-semibold bg-brand-600 text-white hover:bg-brand-700"
+                          >
+                            {t("Approve")}
+                          </button>
+                        </form>
+                        <form action={disapproveRestaurant.bind(null, r.id)}>
+                          <button
+                            type="submit"
+                            className="rounded-lg px-3 py-1.5 text-xs font-semibold bg-red-50 text-red-700 hover:bg-red-100"
+                          >
+                            {t("Disapprove")}
+                          </button>
+                        </form>
+                      </>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}

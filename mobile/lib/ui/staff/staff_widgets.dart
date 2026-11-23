@@ -347,23 +347,45 @@ class _StatusToggleState extends State<StatusToggle> with SingleTickerProviderSt
 class OrderLines extends StatelessWidget {
   final List items;
   const OrderLines(this.items, {super.key});
+
   @override
   Widget build(BuildContext context) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       for (final oi in items)
         Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text.rich(TextSpan(children: [
-              TextSpan(text: '${oi['quantity']}× ${oi['menu_items']?['name'] ?? ''}', style: const TextStyle(fontWeight: FontWeight.w700, color: C.slate800)),
-              TextSpan(
-                text: '  ${formatPrice(((oi['quantity'] as num) * (oi['unit_price_cents'] as num)).toInt())}',
-                style: const TextStyle(color: C.slate500),
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            // Item photo
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: SizedBox(
+                width: 44,
+                height: 44,
+                child: NetImage(oi['menu_items']?['image_url'] as String?),
               ),
-            ])),
-            ..._options(context, (oi['order_item_options'] as List?) ?? const []),
-            if ((oi['notes'] as String?)?.isNotEmpty == true)
-              Text('📝 ${oi['notes']}', style: const TextStyle(fontSize: 12, color: C.amber800, fontStyle: FontStyle.italic)),
+            ),
+            const SizedBox(width: 10),
+            // Name, price, options
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Expanded(
+                    child: Text(
+                      '${oi['quantity']}× ${oi['menu_items']?['name'] ?? ''}',
+                      style: const TextStyle(fontWeight: FontWeight.w700, color: C.slate800),
+                    ),
+                  ),
+                  if (oi['unit_price_cents'] != null)
+                    Text(
+                      formatPrice(((oi['quantity'] as num) * (oi['unit_price_cents'] as num)).toInt()),
+                      style: const TextStyle(fontSize: 12, color: C.slate500),
+                    ),
+                ]),
+                ..._options(context, (oi['order_item_options'] as List?) ?? const []),
+                if ((oi['notes'] as String?)?.isNotEmpty == true)
+                  Text('📝 ${oi['notes']}', style: const TextStyle(fontSize: 12, color: C.amber800, fontStyle: FontStyle.italic)),
+              ]),
+            ),
           ]),
         ),
     ]);

@@ -36,7 +36,9 @@ export async function middleware(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
   const isPublic =
-    path === "/login" || path === "/signup" || path === "/" || path.startsWith("/_next");
+    path === "/login" || path === "/signup" || path === "/" ||
+    path === "/forgot-password" || path === "/reset-password" ||
+    path.startsWith("/_next");
 
   // Not logged in and hitting a protected route -> send to login.
   if (!user && !isPublic) {

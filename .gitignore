@@ -1,0 +1,19 @@
+# Secrets — never commit
+web/.env.local
+web/.env*.local
+
+# Next.js build output
+web/.next/
+web/out/
+
+# Node dependencies
+web/node_modules/
+mobile/package-lock.json
+
+# TypeScript build info
+web/tsconfig.tsbuildinfo
+
+# Flutter build
+mobile/build/
+mobile/.dart_tool/
+mobile/.flutter-plugins-dependencies

@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { setDriverApproval } from "@/app/admin/actions";
+import { setDriverApproval, disapproveDriver } from "@/app/admin/actions";
 import type { DriverProfile } from "@/lib/types";
 import { getT } from "@/lib/i18n/server";
 import type { TFn } from "@/lib/i18n/core";
@@ -47,7 +47,7 @@ export default async function AdminDriversPage() {
               <th className="px-4 py-3 font-medium">{t("Vehicle")}</th>
               <th className="px-4 py-3 font-medium">{t("Online")}</th>
               <th className="px-4 py-3 font-medium">{t("Status")}</th>
-              <th className="px-4 py-3 font-medium">{t("Action")}</th>
+              <th className="px-4 py-3 font-medium">{t("Actions")}</th>
             </tr>
           </thead>
           <tbody>
@@ -63,18 +63,37 @@ export default async function AdminDriversPage() {
                   <Badge approved={d.is_approved} t={t} />
                 </td>
                 <td className="px-4 py-3">
-                  <form action={setDriverApproval.bind(null, d.id, !d.is_approved)}>
-                    <button
-                      type="submit"
-                      className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
-                        d.is_approved
-                          ? "bg-red-50 text-red-700 hover:bg-red-100"
-                          : "bg-brand-600 text-white hover:bg-brand-700"
-                      }`}
-                    >
-                      {d.is_approved ? t("Suspend") : t("Approve")}
-                    </button>
-                  </form>
+                  <div className="flex items-center gap-2">
+                    {d.is_approved ? (
+                      <form action={setDriverApproval.bind(null, d.id, false)}>
+                        <button
+                          type="submit"
+                          className="rounded-lg px-3 py-1.5 text-xs font-semibold bg-amber-50 text-amber-700 hover:bg-amber-100"
+                        >
+                          {t("Suspend")}
+                        </button>
+                      </form>
+                    ) : (
+                      <>
+                        <form action={setDriverApproval.bind(null, d.id, true)}>
+                          <button
+                            type="submit"
+                            className="rounded-lg px-3 py-1.5 text-xs font-semibold bg-brand-600 text-white hover:bg-brand-700"
+                          >
+                            {t("Approve")}
+                          </button>
+                        </form>
+                        <form action={disapproveDriver.bind(null, d.id)}>
+                          <button
+                            type="submit"
+                            className="rounded-lg px-3 py-1.5 text-xs font-semibold bg-red-50 text-red-700 hover:bg-red-100"
+                          >
+                            {t("Disapprove")}
+                          </button>
+                        </form>
+                      </>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}

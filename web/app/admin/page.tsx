@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import RealtimeRefresher from "@/components/RealtimeRefresher";
 import { getT } from "@/lib/i18n/server";
 
+const PLATFORM_FEE_RATE = 0.1;
+
 async function getStats() {
   const supabase = createClient();
 
@@ -14,25 +16,25 @@ async function getStats() {
     { data: revenueRows },
   ] = await Promise.all([
     supabase.from("orders").select("*", { count: "exact", head: true }),
-    supabase
-      .from("restaurants")
-      .select("*", { count: "exact", head: true })
-      .eq("is_approved", false),
-    supabase
-      .from("driver_profiles")
-      .select("*", { count: "exact", head: true })
-      .eq("is_approved", false),
+    supabase.from("restaurants").select("*", { count: "exact", head: true }).eq("is_approved", false),
+    supabase.from("driver_profiles").select("*", { count: "exact", head: true }).eq("is_approved", false),
     supabase
       .from("orders")
       .select("*", { count: "exact", head: true })
       .in("status", ["pending", "accepted", "ready_for_pickup", "driver_assigned", "picked_up"]),
-    supabase.from("orders").select("total_cents").eq("payment_status", "paid"),
+    supabase.from("orders").select("total_cents, subtotal_cents, delivery_fee_cents").eq("payment_status", "paid"),
   ]);
 
-  const totalRevenueCents = (revenueRows ?? []).reduce(
-    (sum, row) => sum + row.total_cents,
+  const totalRevenueCents = (revenueRows ?? []).reduce((sum, r) => sum + r.total_cents, 0);
+  const platformFeeRestaurant = (revenueRows ?? []).reduce(
+    (sum, r) => sum + Math.round(r.subtotal_cents * PLATFORM_FEE_RATE),
     0
   );
+  const platformFeeDriver = (revenueRows ?? []).reduce(
+    (sum, r) => sum + Math.round(r.delivery_fee_cents * PLATFORM_FEE_RATE),
+    0
+  );
+  const platformFeeTotal = platformFeeRestaurant + platformFeeDriver;
 
   return {
     totalOrders: totalOrders ?? 0,
@@ -40,6 +42,9 @@ async function getStats() {
     pendingApprovalDrivers: pendingApprovalDrivers ?? 0,
     activeOrders: activeOrders ?? 0,
     totalRevenueCents,
+    platformFeeTotal,
+    platformFeeRestaurant,
+    platformFeeDriver,
   };
 }
 
@@ -85,6 +90,25 @@ export default async function AdminOverviewPage() {
           label={t("Total revenue (paid orders)")}
           value={formatPrice(stats.totalRevenueCents)}
         />
+      </div>
+
+      {/* Platform earnings */}
+      <div className="mt-6">
+        <h2 className="text-base font-semibold text-slate-700">{t("Platform earnings (10% fee)")}</h2>
+        <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="rounded-2xl bg-brand-50 p-5 ring-1 ring-brand-200">
+            <p className="text-sm text-brand-600">{t("Total platform fee")}</p>
+            <p className="mt-2 text-2xl font-bold text-brand-800">{formatPrice(stats.platformFeeTotal)}</p>
+          </div>
+          <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+            <p className="text-sm text-slate-500">{t("From restaurants (10% of food)")}</p>
+            <p className="mt-2 text-2xl font-bold text-slate-900">{formatPrice(stats.platformFeeRestaurant)}</p>
+          </div>
+          <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+            <p className="text-sm text-slate-500">{t("From drivers (10% of delivery fee)")}</p>
+            <p className="mt-2 text-2xl font-bold text-slate-900">{formatPrice(stats.platformFeeDriver)}</p>
+          </div>
+        </div>
       </div>
     </div>
   );
