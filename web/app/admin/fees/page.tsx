@@ -28,12 +28,11 @@ export default async function AdminFeesPage({
   const rows = orders ?? [];
 
   // Per-order fee breakdown
-  const enriched = rows.map((o) => ({
-    ...o,
-    feeRestaurant: Math.round(o.subtotal_cents * PLATFORM_FEE_RATE),
-    feeDriver: Math.round(o.delivery_fee_cents * PLATFORM_FEE_RATE),
-    get feeTotal() { return this.feeRestaurant + this.feeDriver; },
-  }));
+  const enriched = rows.map((o) => {
+    const feeRestaurant = Math.round(o.subtotal_cents * PLATFORM_FEE_RATE);
+    const feeDriver = Math.round(o.delivery_fee_cents * PLATFORM_FEE_RATE);
+    return { ...o, feeRestaurant, feeDriver, feeTotal: feeRestaurant + feeDriver };
+  });
 
   const totals = enriched.reduce(
     (acc, o) => ({
