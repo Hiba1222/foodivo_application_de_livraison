@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { href: "/restaurant/menu", label: "Menu" },
   { href: "/restaurant/orders", label: "Orders" },
   { href: "/restaurant/analytics", label: "Analytics" },
+  { href: "/restaurant/payouts", label: "Payouts" },
   { href: "/restaurant/settings", label: "Settings" },
 ];
 

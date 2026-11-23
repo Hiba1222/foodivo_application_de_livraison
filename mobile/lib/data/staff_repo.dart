@@ -130,6 +130,16 @@ class RestaurantRepo {
       .order('created_at', ascending: false)
       .limit(100);
 
+  static Future<List<Map<String, dynamic>>> payouts(String id, {DateTime? since}) {
+    var q = sb
+        .from('orders')
+        .select('id, subtotal_cents, delivered_at, profiles!orders_client_id_fkey(full_name)')
+        .eq('restaurant_id', id)
+        .eq('status', 'delivered');
+    if (since != null) q = q.gte('created_at', since.toIso8601String());
+    return q.order('delivered_at', ascending: false).limit(200);
+  }
+
   static const _allowed = {
     'pending': ['accepted', 'rejected'],
     'accepted': ['ready_for_pickup'],
@@ -381,6 +391,16 @@ class DriverRepo {
       .eq('status', 'delivered')
       .order('delivered_at', ascending: false)
       .limit(100);
+
+  static Future<List<Map<String, dynamic>>> earnings({DateTime? since}) {
+    var q = sb
+        .from('orders')
+        .select('id, delivery_fee_cents, delivered_at, restaurants(name)')
+        .eq('driver_id', _uid)
+        .eq('status', 'delivered');
+    if (since != null) q = q.gte('created_at', since.toIso8601String());
+    return q.order('delivered_at', ascending: false).limit(200);
+  }
 
   /// Only succeeds if the order is still unassigned — guards against two drivers accepting at once.
   static Future<bool> accept(String orderId) async {

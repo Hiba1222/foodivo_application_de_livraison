@@ -66,6 +66,20 @@ const _mobileFr = <String, String>{
   "We'll buzz you as soon as an order is ready.": "Votre téléphone vibrera dès qu'une commande sera prête.",
   'Waiting for your approval': 'En attente de votre approbation',
   'Nothing waiting for approval.': "Rien en attente d'approbation.",
+  // Driver earnings
+  'My earnings': 'Mes gains',
+  'All time': 'Tout',
+  'Net earnings': 'Gains nets',
+  'Deliveries': 'Livraisons',
+  'Avg per delivery': 'Moy. par livraison',
+  'Platform fees paid': 'Frais plateforme payés',
+  'No deliveries in this period.': 'Aucune livraison sur cette période.',
+  // Restaurant payouts
+  'Payouts': 'Versements',
+  'Net payout': 'Versement net',
+  'Orders delivered': 'Commandes livrées',
+  'Gross food revenue': 'Revenus bruts nourriture',
+  'No delivered orders in this period.': 'Aucune commande livrée sur cette période.',
   // Order cancellation
   'Cancel order': 'Annuler la commande',
   'Cancel this order? This cannot be undone.': 'Annuler cette commande ? Cette action est irréversible.',

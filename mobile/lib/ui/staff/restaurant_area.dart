@@ -86,6 +86,7 @@ class _RestaurantAreaState extends State<RestaurantArea> {
         (Icons.dashboard_outlined, 'Overview', _Overview(restaurant: r, onChanged: _load, pending: _pending, onOpenTab: (i) => _tab.value = i)),
         (Icons.receipt_long_outlined, 'Orders', _Orders(restaurant: r)),
         (Icons.restaurant_menu, 'Menu', RestaurantMenuScreen(restaurant: r)),
+        (Icons.account_balance_wallet_outlined, 'Payouts', _Payouts(restaurantId: r['id'] as String)),
         (Icons.settings_outlined, 'Settings', _Settings(restaurant: r, onSaved: _load)),
       ],
     );
@@ -650,6 +651,148 @@ class _OrdersState extends State<_Orders> {
       ]),
     );
   }
+}
+
+// ---------------- Payouts ----------------
+
+const _kRestaurantFeeRate = 0.1;
+
+class _Payouts extends StatefulWidget {
+  final String restaurantId;
+  const _Payouts({required this.restaurantId});
+  @override
+  State<_Payouts> createState() => _PayoutsState();
+}
+
+class _PayoutsState extends State<_Payouts> {
+  List<Map<String, dynamic>>? _orders;
+  String _period = '30';
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
+  Future<void> _refresh() async {
+    try {
+      DateTime? since;
+      if (_period != 'all') {
+        since = DateTime.now().subtract(Duration(days: int.parse(_period)));
+      }
+      final rows = await RestaurantRepo.payouts(widget.restaurantId, since: since);
+      if (mounted) setState(() => _orders = rows);
+    } catch (e) {
+      if (mounted) showError(context, errorMessage(e));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final orders = _orders;
+    final enriched = (orders ?? []).map((o) {
+      final sub = (o['subtotal_cents'] as num).toInt();
+      final fee = (sub * _kRestaurantFeeRate).round();
+      return {...o, '_fee': fee, '_net': sub - fee};
+    }).toList();
+    final totalNet = enriched.fold<int>(0, (s, o) => s + (o['_net'] as int));
+    final totalFee = enriched.fold<int>(0, (s, o) => s + (o['_fee'] as int));
+    final totalGross = enriched.fold<int>(0, (s, o) => s + ((o['subtotal_cents'] as num).toInt()));
+
+    final periods = [('7', '7d'), ('30', '30d'), ('90', '90d'), ('all', context.t('All time'))];
+
+    return SafeArea(
+      child: RefreshIndicator(
+        color: C.brand600,
+        onRefresh: _refresh,
+        child: ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
+          PageHeader(context.t('Payouts')),
+
+          Row(children: periods.map((p) {
+            final selected = _period == p.$1;
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: GestureDetector(
+                onTap: () { setState(() => _period = p.$1); _refresh(); },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: selected ? C.brand600 : C.slate100,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(p.$2, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: selected ? Colors.white : C.slate600)),
+                ),
+              ),
+            );
+          }).toList()),
+
+          const SizedBox(height: 16),
+
+          Row(children: [
+            Expanded(child: _PayoutCard(context.t('Net payout'), formatPrice(totalNet), primary: true)),
+            const SizedBox(width: 10),
+            Expanded(child: _PayoutCard(context.t('Orders delivered'), '${enriched.length}')),
+          ]),
+          const SizedBox(height: 10),
+          Row(children: [
+            Expanded(child: _PayoutCard(context.t('Gross food revenue'), formatPrice(totalGross))),
+            const SizedBox(width: 10),
+            Expanded(child: _PayoutCard(context.t('Platform fees paid'), formatPrice(totalFee))),
+          ]),
+          const SizedBox(height: 20),
+
+          if (orders == null)
+            const Center(child: CircularProgressIndicator(color: C.brand600))
+          else if (enriched.isEmpty)
+            EmptyState(emoji: '📭', title: context.t('No delivered orders in this period.'))
+          else
+            CardBox(
+              padding: EdgeInsets.zero,
+              child: Column(children: [
+                for (var i = 0; i < enriched.length; i++)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(border: i == 0 ? null : const Border(top: BorderSide(color: C.slate100))),
+                    child: Row(children: [
+                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(enriched[i]['profiles']?['full_name'] ?? '—', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                        Text(
+                          enriched[i]['delivered_at'] == null ? '—' : context.i18n.date(enriched[i]['delivered_at']),
+                          style: const TextStyle(fontSize: 11, color: C.slate400),
+                        ),
+                      ])),
+                      Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                        Text(formatPrice(enriched[i]['_net'] as int), style: const TextStyle(fontWeight: FontWeight.w700, color: C.brand600)),
+                        Text('-${formatPrice(enriched[i]['_fee'] as int)}', style: const TextStyle(fontSize: 11, color: C.slate400)),
+                      ]),
+                    ]),
+                  ),
+              ]),
+            ),
+        ]),
+      ),
+    );
+  }
+}
+
+class _PayoutCard extends StatelessWidget {
+  final String label, value;
+  final bool primary;
+  const _PayoutCard(this.label, this.value, {this.primary = false});
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: primary ? C.brand50 : C.slate50,
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: primary ? C.brand200 : C.slate200),
+    ),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(label, style: TextStyle(fontSize: 11, color: primary ? C.brand600 : C.slate500)),
+      const SizedBox(height: 4),
+      Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: primary ? C.brand700 : C.slate900)),
+    ]),
+  );
 }
 
 // ---------------- Settings ----------------

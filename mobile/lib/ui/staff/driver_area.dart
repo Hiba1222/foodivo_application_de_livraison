@@ -123,6 +123,7 @@ class _DriverAreaState extends State<DriverArea> {
         (Icons.notifications_active_outlined, 'Available', _Available(approved: approved, online: online, onAccepted: () => _tab.value = 2)),
         (Icons.delivery_dining_outlined, 'My deliveries', const _MyDeliveries()),
         (Icons.history, 'History', const _History()),
+        (Icons.account_balance_wallet_outlined, 'Earnings', const _Earnings()),
         (Icons.settings_outlined, 'Settings', _Settings(driver: d, onSaved: _load)),
       ],
     );
@@ -950,6 +951,149 @@ class _HistoryState extends State<_History> {
       ),
     );
   }
+}
+
+// ---------------- Earnings ----------------
+
+const _kPlatformFeeRate = 0.1;
+
+class _Earnings extends StatefulWidget {
+  const _Earnings();
+  @override
+  State<_Earnings> createState() => _EarningsState();
+}
+
+class _EarningsState extends State<_Earnings> {
+  List<Map<String, dynamic>>? _orders;
+  String _period = '30';
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
+  Future<void> _refresh() async {
+    try {
+      DateTime? since;
+      if (_period != 'all') {
+        since = DateTime.now().subtract(Duration(days: int.parse(_period)));
+      }
+      final rows = await DriverRepo.earnings(since: since);
+      if (mounted) setState(() => _orders = rows);
+    } catch (e) {
+      if (mounted) showError(context, errorMessage(e));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final orders = _orders;
+    final enriched = (orders ?? []).map((o) {
+      final fee = (o['delivery_fee_cents'] as num).toInt();
+      final cut = (fee * _kPlatformFeeRate).round();
+      return {...o, '_cut': cut, '_net': fee - cut};
+    }).toList();
+    final totalNet = enriched.fold<int>(0, (s, o) => s + (o['_net'] as int));
+    final totalCut = enriched.fold<int>(0, (s, o) => s + (o['_cut'] as int));
+    final avg = enriched.isEmpty ? 0 : (totalNet / enriched.length).round();
+
+    final periods = [('7', '7d'), ('30', '30d'), ('90', '90d'), ('all', context.t('All time'))];
+
+    return SafeArea(
+      child: RefreshIndicator(
+        color: C.brand600,
+        onRefresh: _refresh,
+        child: ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
+          PageHeader(context.t('My earnings')),
+
+          // Period selector
+          Row(children: periods.map((p) {
+            final selected = _period == p.$1;
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: GestureDetector(
+                onTap: () { setState(() => _period = p.$1); _refresh(); },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: selected ? C.brand600 : C.slate100,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(p.$2, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: selected ? Colors.white : C.slate600)),
+                ),
+              ),
+            );
+          }).toList()),
+
+          const SizedBox(height: 16),
+
+          // Summary cards
+          Row(children: [
+            Expanded(child: _StatCard(context.t('Net earnings'), formatPrice(totalNet), primary: true)),
+            const SizedBox(width: 10),
+            Expanded(child: _StatCard(context.t('Deliveries'), '${enriched.length}')),
+          ]),
+          const SizedBox(height: 10),
+          Row(children: [
+            Expanded(child: _StatCard(context.t('Avg per delivery'), formatPrice(avg))),
+            const SizedBox(width: 10),
+            Expanded(child: _StatCard(context.t('Platform fees paid'), formatPrice(totalCut))),
+          ]),
+          const SizedBox(height: 20),
+
+          if (orders == null)
+            const Center(child: CircularProgressIndicator(color: C.brand600))
+          else if (enriched.isEmpty)
+            EmptyState(emoji: '📭', title: context.t('No deliveries in this period.'))
+          else
+            CardBox(
+              padding: EdgeInsets.zero,
+              child: Column(children: [
+                for (var i = 0; i < enriched.length; i++)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(border: i == 0 ? null : const Border(top: BorderSide(color: C.slate100))),
+                    child: Row(children: [
+                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(enriched[i]['restaurants']?['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                        Text(
+                          enriched[i]['delivered_at'] == null ? '—' : context.i18n.date(enriched[i]['delivered_at']),
+                          style: const TextStyle(fontSize: 11, color: C.slate400),
+                        ),
+                      ])),
+                      Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                        Text(formatPrice(enriched[i]['_net'] as int), style: const TextStyle(fontWeight: FontWeight.w700, color: C.brand600)),
+                        Text('-${formatPrice(enriched[i]['_cut'] as int)}', style: const TextStyle(fontSize: 11, color: C.slate400)),
+                      ]),
+                    ]),
+                  ),
+              ]),
+            ),
+        ]),
+      ),
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  final String label, value;
+  final bool primary;
+  const _StatCard(this.label, this.value, {this.primary = false});
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: primary ? C.brand50 : C.slate50,
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: primary ? C.brand200 : C.slate200),
+    ),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(label, style: TextStyle(fontSize: 11, color: primary ? C.brand600 : C.slate500)),
+      const SizedBox(height: 4),
+      Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: primary ? C.brand700 : C.slate900)),
+    ]),
+  );
 }
 
 // ---------------- Settings ----------------

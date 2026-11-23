@@ -22,9 +22,37 @@ export const fr: Record<string, string> = {
   "Available deliveries": "Livraisons disponibles",
   "My deliveries": "Mes livraisons",
   History: "Historique",
+  Earnings: "Gains",
+  Payouts: "Versements",
   Restaurants: "Restaurants",
   Drivers: "Livreurs",
   Users: "Utilisateurs",
+
+  // ---------- Driver earnings ----------
+  "My earnings": "Mes gains",
+  "You keep 90% of the delivery fee.": "Vous gardez 90 % des frais de livraison.",
+  "All time": "Tout",
+  "Net earnings": "Gains nets",
+  "Deliveries completed": "Livraisons effectuées",
+  "Avg per delivery": "Moy. par livraison",
+  "Platform fees paid": "Frais plateforme payés",
+  "{n} deliveries": "{n} livraisons",
+  "Delivery fee": "Frais de livraison",
+  "Platform cut (10%)": "Commission plateforme (10 %)",
+  "You earned": "Vous avez gagné",
+  "No deliveries in this period.": "Aucune livraison sur cette période.",
+
+  // ---------- Restaurant payouts ----------
+  "You keep 90% of food subtotal. Delivery fees go to the driver.":
+    "Vous gardez 90 % du sous-total nourriture. Les frais de livraison vont au livreur.",
+  "Net payout": "Versement net",
+  "Gross food revenue": "Revenus bruts nourriture",
+  "{n} delivered orders": "{n} commandes livrées",
+  "Food subtotal": "Sous-total nourriture",
+  "Platform fee (10%)": "Commission plateforme (10 %)",
+  "Your payout": "Votre versement",
+  "No delivered orders in this period.": "Aucune commande livrée sur cette période.",
+  Total: "Total",
 
   // ---------- Order statuses ----------
   Pending: "En attente",

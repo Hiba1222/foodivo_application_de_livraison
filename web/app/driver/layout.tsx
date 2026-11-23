@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { href: "/driver/available", label: "Available deliveries" },
   { href: "/driver/my-deliveries", label: "My deliveries" },
   { href: "/driver/history", label: "History" },
+  { href: "/driver/earnings", label: "Earnings" },
   { href: "/driver/settings", label: "Settings" },
 ];
 
