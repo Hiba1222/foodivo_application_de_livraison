@@ -54,16 +54,17 @@ export async function disapproveRestaurant(restaurantId: string) {
 
   if (fetchError) throw new Error(fetchError.message);
 
-  // Send email before deleting so we still have the name
-  const email = await getEmailForUser(restaurant.owner_id);
-  if (email) await sendApprovalEmail(email, "restaurant", "disapproved", restaurant.name);
-
-  const { error } = await supabase
+  const { data: deleted, error } = await supabase
     .from("restaurants")
     .delete()
-    .eq("id", restaurantId);
+    .eq("id", restaurantId)
+    .select("id");
 
   if (error) throw new Error(error.message);
+  if (!deleted?.length) throw new Error("Restaurant could not be deleted");
+
+  const email = await getEmailForUser(restaurant.owner_id);
+  if (email) await sendApprovalEmail(email, "restaurant", "disapproved", restaurant.name);
 
   revalidatePath("/admin/restaurants");
   revalidatePath("/admin");
